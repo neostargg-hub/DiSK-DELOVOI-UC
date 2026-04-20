@@ -1,15 +1,18 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, jsonify
 import sqlite3
 import random
 import string
 import hashlib
 import os
 from functools import wraps
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2'
 
 SITE_NAME = "DiSK Delovoi UC"
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = hashlib.sha256("admin123".encode()).hexdigest()
 
 # ==================== БАЗА ДАННЫХ ====================
 def get_db():
@@ -47,22 +50,21 @@ def init_db():
     ''')
     
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS admin (
+    CREATE TABLE IF NOT EXISTS support_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        password_hash TEXT
+        user_name TEXT,
+        user_email TEXT,
+        message TEXT,
+        status TEXT DEFAULT 'new',
+        reply TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
-    
-    cursor.execute("SELECT COUNT(*) FROM admin WHERE username='admin'")
-    if cursor.fetchone()[0] == 0:
-        password_hash = hashlib.sha256('admin123'.encode()).hexdigest()
-        cursor.execute("INSERT INTO admin (username, password_hash) VALUES (?, ?)", ('admin', password_hash))
     
     cursor.execute("SELECT COUNT(*) FROM payments")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO payments (card_number, wallet_number, instruction) VALUES (?, ?, ?)",
-                      ('', '', 'Оплатите на указанные реквизиты'))
+                      ('2200 1234 5678 9012', '+7 999 123-45-67', 'Оплатите на карту или кошелек, затем отправьте чек'))
     
     conn.commit()
     conn.close()
@@ -92,7 +94,7 @@ def admin_required(f):
     return decorated
 
 # ==================== HTML ШАБЛОН ====================
-HTML_TEMPLATE = '''
+HTML_HEAD = '''
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -111,57 +113,67 @@ HTML_TEMPLATE = '''
             overflow-x: hidden;
         }
         
-        /* Летающие буквы UC */
-        .floating-uc {
+        /* Фоновые элементы - всегда снизу */
+        .bg-elements {
             position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .bg-letter {
+            position: absolute;
+            bottom: -50px;
             font-family: 'Orbitron', monospace;
             font-weight: 900;
-            font-size: 50px;
-            pointer-events: none;
-            z-index: 0;
-            animation: floatUC 12s infinite ease-in-out;
-            text-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+            font-size: 80px;
+            opacity: 0.15;
+            color: #7c3aed;
+            animation: floatUp 15s infinite ease-in-out;
         }
         
-        @keyframes floatUC {
-            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 0.3; }
-            50% { opacity: 0.5; }
-            90% { opacity: 0.3; }
-            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        @keyframes floatUp {
+            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.15; }
+            90% { opacity: 0.15; }
+            100% { transform: translateY(-400px) rotate(360deg); opacity: 0; }
         }
         
-        /* Треугольники */
-        .triangle {
-            position: fixed;
+        .bg-number {
+            position: absolute;
+            bottom: -30px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 40px;
+            opacity: 0.1;
+            color: #a8b5e6;
+            animation: floatUpSlow 20s infinite ease-in-out;
+        }
+        
+        @keyframes floatUpSlow {
+            0% { transform: translateY(0); opacity: 0; }
+            10% { opacity: 0.1; }
+            90% { opacity: 0.1; }
+            100% { transform: translateY(-500px); opacity: 0; }
+        }
+        
+        .bg-triangle {
+            position: absolute;
             width: 0;
             height: 0;
-            border-left: 25px solid transparent;
-            border-right: 25px solid transparent;
-            border-bottom: 45px solid rgba(124, 58, 237, 0.15);
-            pointer-events: none;
-            z-index: 0;
-            animation: spin 20s infinite linear;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-bottom: 70px solid rgba(124, 58, 237, 0.08);
+            animation: spin 30s infinite linear;
         }
         
         @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
-        }
-        
-        /* Шарики */
-        .orb {
-            position: fixed;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, rgba(124,58,237,0.2), rgba(0,0,0,0));
-            pointer-events: none;
-            z-index: 0;
-            animation: pulse 6s infinite ease-in-out;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 0.3; }
-            50% { transform: scale(1.3); opacity: 0.6; }
         }
         
         .navbar {
@@ -171,7 +183,7 @@ HTML_TEMPLATE = '''
             right: 0;
             z-index: 1000;
             padding: 16px 32px;
-            background: rgba(10, 10, 30, 0.9);
+            background: rgba(10, 10, 30, 0.95);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(124, 58, 237, 0.3);
         }
@@ -211,7 +223,7 @@ HTML_TEMPLATE = '''
         }
         
         .hero {
-            padding: 160px 24px 100px;
+            padding: 140px 24px 80px;
             text-align: center;
             position: relative;
             z-index: 1;
@@ -397,6 +409,7 @@ HTML_TEMPLATE = '''
             gap: 16px;
             justify-content: center;
             margin-bottom: 40px;
+            flex-wrap: wrap;
         }
         
         .btn-outline {
@@ -450,12 +463,110 @@ HTML_TEMPLATE = '''
             z-index: 1;
         }
         
+        /* Чат поддержки */
+        .chat-widget {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+        
+        .chat-button {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #7c3aed, #a8b5e6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.4);
+            transition: all 0.3s;
+        }
+        
+        .chat-button:hover {
+            transform: scale(1.1);
+        }
+        
+        .chat-window {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 350px;
+            height: 500px;
+            background: rgba(10, 10, 30, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-window.open {
+            display: flex;
+        }
+        
+        .chat-header {
+            padding: 16px;
+            background: rgba(124, 58, 237, 0.2);
+            border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+        }
+        
+        .chat-message {
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 80%;
+        }
+        
+        .chat-message.user {
+            background: rgba(124, 58, 237, 0.2);
+            margin-left: auto;
+        }
+        
+        .chat-message.support {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid rgba(124, 58, 237, 0.3);
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 20px;
+            color: white;
+        }
+        
+        .chat-input button {
+            margin-left: 8px;
+            padding: 10px 16px;
+            background: #7c3aed;
+            border: none;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+        }
+        
         @media (max-width: 768px) {
             .hero h1 { font-size: 40px; }
             .features-grid { grid-template-columns: repeat(2, 1fr); }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .nav-links { display: none; }
             .catalog-grid { grid-template-columns: 1fr; }
+            .chat-window { width: 300px; height: 450px; }
         }
     </style>
 </head>
@@ -463,58 +574,104 @@ HTML_TEMPLATE = '''
 '''
 
 HTML_FOOT = '''
+    <div class="chat-widget">
+        <div class="chat-button" onclick="toggleChat()">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z"/>
+            </svg>
+        </div>
+        <div class="chat-window" id="chatWindow">
+            <div class="chat-header">
+                <strong>💬 Поддержка DiSK Delovoi UC</strong>
+                <span style="float: right; cursor: pointer;" onclick="toggleChat()">✕</span>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message support">Здравствуйте! Чем могу помочь?</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <button onclick="sendMessage()">Отправить</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-elements" id="bgElements"></div>
+    
     <div class="footer">
         <p>© 2024 DiSK Delovoi UC. Все права защищены.</p>
         <p style="margin-top: 8px;">⚡ Киберпространство ждёт тебя ⚡</p>
     </div>
     
     <script>
-        // Создание летающих объектов
-        function createFloatingObjects() {
-            const letters = ['U', 'C', '▲', '●', '◆', 'UC', '60', '120', '180', '325', '660', '1320', '1800'];
+        // Фоновые элементы
+        const letters = ['U', 'C', '▲', '●', '◆', 'UC'];
+        const numbers = ['60', '120', '180', '325', '660', '1320', '1800', '3850', '8100', '9900'];
+        
+        for (let i = 0; i < 30; i++) {
+            const bgDiv = document.createElement('div');
+            const isLetter = Math.random() > 0.5;
             
-            for (let i = 0; i < 40; i++) {
-                const obj = document.createElement('div');
-                const randomObj = letters[Math.floor(Math.random() * letters.length)];
-                
-                if (randomObj === 'U' || randomObj === 'C' || randomObj === 'UC') {
-                    obj.className = 'floating-uc';
-                    obj.innerHTML = randomObj;
-                    obj.style.fontSize = Math.random() * 40 + 30 + 'px';
-                    obj.style.left = Math.random() * 100 + '%';
-                    obj.style.animationDelay = Math.random() * 15 + 's';
-                    obj.style.animationDuration = Math.random() * 15 + 10 + 's';
-                    obj.style.color = `rgba(124, 58, 237, ${Math.random() * 0.3 + 0.1})`;
-                } else if (randomObj === '▲') {
-                    obj.className = 'triangle';
-                    obj.style.left = Math.random() * 100 + '%';
-                    obj.style.top = Math.random() * 100 + '%';
-                    obj.style.animationDelay = Math.random() * 20 + 's';
-                    obj.style.animationDuration = Math.random() * 20 + 15 + 's';
-                    obj.style.borderBottomColor = `rgba(124, 58, 237, ${Math.random() * 0.2 + 0.05})`;
-                } else if (randomObj === '●') {
-                    obj.className = 'orb';
-                    obj.style.width = Math.random() * 80 + 40 + 'px';
-                    obj.style.height = obj.style.width;
-                    obj.style.left = Math.random() * 100 + '%';
-                    obj.style.top = Math.random() * 100 + '%';
-                    obj.style.animationDelay = Math.random() * 8 + 's';
-                    obj.style.animationDuration = Math.random() * 10 + 5 + 's';
-                } else {
-                    obj.className = 'floating-uc';
-                    obj.innerHTML = randomObj;
-                    obj.style.fontSize = Math.random() * 20 + 12 + 'px';
-                    obj.style.left = Math.random() * 100 + '%';
-                    obj.style.animationDelay = Math.random() * 15 + 's';
-                    obj.style.animationDuration = Math.random() * 15 + 10 + 's';
-                    obj.style.color = `rgba(168, 181, 230, ${Math.random() * 0.4 + 0.1})`;
-                }
-                
-                document.body.appendChild(obj);
+            if (isLetter) {
+                const letter = letters[Math.floor(Math.random() * letters.length)];
+                bgDiv.className = 'bg-letter';
+                bgDiv.innerHTML = letter;
+                bgDiv.style.left = Math.random() * 100 + '%';
+                bgDiv.style.animationDelay = Math.random() * 10 + 's';
+                bgDiv.style.animationDuration = Math.random() * 10 + 10 + 's';
+                bgDiv.style.fontSize = (Math.random() * 60 + 40) + 'px';
+            } else {
+                const number = numbers[Math.floor(Math.random() * numbers.length)];
+                bgDiv.className = 'bg-number';
+                bgDiv.innerHTML = number;
+                bgDiv.style.left = Math.random() * 100 + '%';
+                bgDiv.style.animationDelay = Math.random() * 10 + 's';
+                bgDiv.style.animationDuration = Math.random() * 15 + 15 + 's';
             }
+            
+            document.getElementById('bgElements').appendChild(bgDiv);
         }
         
-        createFloatingObjects();
+        for (let i = 0; i < 15; i++) {
+            const triangle = document.createElement('div');
+            triangle.className = 'bg-triangle';
+            triangle.style.left = Math.random() * 100 + '%';
+            triangle.style.bottom = Math.random() * 200 + 'px';
+            triangle.style.animationDelay = Math.random() * 20 + 's';
+            triangle.style.animationDuration = Math.random() * 20 + 20 + 's';
+            document.getElementById('bgElements').appendChild(triangle);
+        }
+        
+        // Чат
+        function toggleChat() {
+            const chatWindow = document.getElementById('chatWindow');
+            chatWindow.classList.toggle('open');
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            const messagesDiv = document.getElementById('chatMessages');
+            const userMsg = document.createElement('div');
+            userMsg.className = 'chat-message user';
+            userMsg.innerHTML = message;
+            messagesDiv.appendChild(userMsg);
+            
+            fetch('/support/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'message=' + encodeURIComponent(message)
+            });
+            
+            const supportMsg = document.createElement('div');
+            supportMsg.className = 'chat-message support';
+            supportMsg.innerHTML = 'Спасибо за обращение! Мы ответим вам в ближайшее время.';
+            messagesDiv.appendChild(supportMsg);
+            
+            input.value = '';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
     </script>
 </body>
 </html>
@@ -523,7 +680,7 @@ HTML_FOOT = '''
 # ==================== МАРШРУТЫ ====================
 @app.route('/')
 def index():
-    return HTML_TEMPLATE + '''
+    return HTML_HEAD + '''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
@@ -531,6 +688,7 @@ def index():
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
                 <a href="/check">Проверить заказ</a>
+                <a href="/support">Поддержка</a>
                 ''' + ("<a href='/admin'>Админ-панель</a>" if session.get('admin_logged_in') else "") + '''
             </div>
         </div>
@@ -577,7 +735,7 @@ def catalog():
         </div>
         '''
     
-    return HTML_TEMPLATE + '''
+    return HTML_HEAD + '''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
@@ -585,6 +743,7 @@ def catalog():
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
                 <a href="/check">Проверить заказ</a>
+                <a href="/support">Поддержка</a>
             </div>
         </div>
     </nav>
@@ -622,15 +781,15 @@ def order(amount):
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute('''
-        INSERT INTO orders (order_num, user_name, user_phone, user_email, game_id, uc_amount, uc_price)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO orders (order_num, user_name, user_phone, user_email, game_id, uc_amount, uc_price, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'new')
         ''', (order_num, user_name, user_phone, user_email, game_id, amount, price))
         conn.commit()
         conn.close()
         
         return redirect(url_for('payment', order_num=order_num))
     
-    return HTML_TEMPLATE + f'''
+    return HTML_HEAD + f'''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
@@ -638,6 +797,7 @@ def order(amount):
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
                 <a href="/check">Проверить заказ</a>
+                <a href="/support">Поддержка</a>
             </div>
         </div>
     </nav>
@@ -685,15 +845,18 @@ def payment(order_num):
     conn.close()
     
     if not order:
+        flash('Заказ не найден!')
         return redirect(url_for('catalog'))
     
-    return HTML_TEMPLATE + f'''
+    return HTML_HEAD + f'''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
+                <a href="/check">Проверить заказ</a>
+                <a href="/support">Поддержка</a>
             </div>
         </div>
     </nav>
@@ -744,6 +907,7 @@ def payment_proof(order_num):
     conn.commit()
     conn.close()
     
+    flash('Чек отправлен! Администратор проверит оплату.')
     return redirect(url_for('order_status', order_num=order_num))
 
 @app.route('/status/<order_num>')
@@ -758,15 +922,17 @@ def order_status(order_num):
         flash('Заказ не найден!')
         return redirect(url_for('catalog'))
     
-    status_text = "🆕 Новый" if order['status'] == 'new' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
+    status_text = "🆕 Новый" if order['status'] == 'new' else "⏳ Ожидает подтверждения" if order['status'] == 'waiting_confirm' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
     
-    return HTML_TEMPLATE + f'''
+    return HTML_HEAD + f'''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
+                <a href="/check">Проверить заказ</a>
+                <a href="/support">Поддержка</a>
             </div>
         </div>
     </nav>
@@ -796,13 +962,14 @@ def check_order():
 
 @app.route('/check')
 def check_page():
-    return HTML_TEMPLATE + '''
+    return HTML_HEAD + '''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
+                <a href="/support">Поддержка</a>
             </div>
         </div>
     </nav>
@@ -823,6 +990,76 @@ def check_page():
     </div>
     ''' + HTML_FOOT
 
+@app.route('/support')
+def support_page():
+    return HTML_HEAD + '''
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">DISK Delovoi UC</div>
+            <div class="nav-links">
+                <a href="/">Главная</a>
+                <a href="/catalog">Каталог</a>
+                <a href="/check">Проверить заказ</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="hero" style="padding-top: 100px;">
+            <h1>💬 Служба поддержки</h1>
+            <p>Напишите нам, и мы ответим в ближайшее время</p>
+        </div>
+        <div class="form-container">
+            <form method="post" action="/support/send-form">
+                <div class="form-group">
+                    <label>👤 Ваше имя</label>
+                    <input type="text" name="user_name" required>
+                </div>
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" name="user_email" required>
+                </div>
+                <div class="form-group">
+                    <label>💬 Сообщение</label>
+                    <textarea name="message" rows="5" required></textarea>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">📨 Отправить</button>
+            </form>
+        </div>
+    </div>
+    ''' + HTML_FOOT
+
+@app.route('/support/send', methods=['POST'])
+def send_support_message():
+    message = request.form.get('message', '')
+    if message:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO support_messages (user_name, user_email, message) VALUES (?, ?, ?)",
+                      ('Пользователь чата', 'chat@user.com', message))
+        conn.commit()
+        conn.close()
+    return '', 200
+
+@app.route('/support/send-form', methods=['POST'])
+def send_support_form():
+    user_name = request.form.get('user_name')
+    user_email = request.form.get('user_email')
+    message = request.form.get('message')
+    
+    if all([user_name, user_email, message]):
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO support_messages (user_name, user_email, message) VALUES (?, ?, ?)",
+                      (user_name, user_email, message))
+        conn.commit()
+        conn.close()
+        flash('Сообщение отправлено! Мы ответим вам на email.')
+    else:
+        flash('Пожалуйста, заполните все поля!')
+    
+    return redirect(url_for('support_page'))
+
 # ==================== АДМИН-ПАНЕЛЬ ====================
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -832,19 +1069,13 @@ def admin_login():
         password = request.form.get('password')
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM admin WHERE username=? AND password_hash=?", (username, password_hash))
-        admin = cursor.fetchone()
-        conn.close()
-        
-        if admin:
+        if username == ADMIN_USERNAME and password_hash == ADMIN_PASSWORD_HASH:
             session['admin_logged_in'] = True
             return redirect(url_for('admin_dashboard'))
         else:
             error = 'Неверный логин или пароль!'
     
-    return HTML_TEMPLATE + f'''
+    return HTML_HEAD + f'''
     <div class="container">
         <div class="hero" style="padding-top: 120px;">
             <h1>👑 Вход в админ-панель</h1>
@@ -891,11 +1122,17 @@ def admin_dashboard():
     
     cursor.execute("SELECT * FROM orders ORDER BY created_at DESC")
     orders = cursor.fetchall()
+    
+    cursor.execute("SELECT COUNT(*) FROM support_messages WHERE status='new'")
+    new_messages = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT * FROM support_messages ORDER BY created_at DESC")
+    support_messages = cursor.fetchall()
     conn.close()
     
     orders_html = ''
     for order in orders:
-        status_class = 'Новый' if order['status'] == 'new' else 'Завершен' if order['status'] == 'completed' else 'Отменен'
+        status_class = 'Новый' if order['status'] == 'new' else 'Ожидает' if order['status'] == 'waiting_confirm' else 'Завершен' if order['status'] == 'completed' else 'Отменен'
         orders_html += f'''
         <tr>
             <td>{order['order_num']}</td>
@@ -905,8 +1142,9 @@ def admin_dashboard():
             <td>{status_class}</td>
             <td>
                 <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px;">
-                    <select name="status" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(124,58,237,0.3); padding: 6px 12px; border-radius: 12px; color: white;">
+                    <select name="status">
                         <option value="new">Новый</option>
+                        <option value="waiting_confirm">Ожидает</option>
                         <option value="completed">Завершен</option>
                         <option value="cancelled">Отменен</option>
                     </select>
@@ -916,7 +1154,19 @@ def admin_dashboard():
         </tr>
         '''
     
-    return HTML_TEMPLATE + f'''
+    messages_html = ''
+    for msg in support_messages:
+        messages_html += f'''
+        <tr>
+            <td>{msg['created_at'][:16]}</td>
+            <td>{msg['user_name']}</td>
+            <td>{msg['user_email']}</td>
+            <td style="max-width: 300px;">{msg['message'][:100]}</td>
+            <td>{'🆕 Новое' if msg['status'] == 'new' else '✅ Прочитано'}</td>
+        </tr>
+        '''
+    
+    return HTML_HEAD + f'''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
@@ -930,7 +1180,7 @@ def admin_dashboard():
     <div class="container">
         <div class="hero" style="padding-top: 100px;">
             <h1>👑 Админ-панель</h1>
-            <p>Управление заказами и реквизитами</p>
+            <p>Управление заказами, реквизитами и сообщениями</p>
         </div>
         
         <div class="stats-grid">
@@ -942,17 +1192,28 @@ def admin_dashboard():
         
         <div class="admin-actions">
             <a href="/admin/payments" class="btn btn-outline">💳 Реквизиты</a>
+            <a href="/admin/messages" class="btn btn-outline">💬 Сообщения ({new_messages})</a>
             <a href="/admin/logout" class="btn btn-outline">🚪 Выйти</a>
         </div>
         
         <div class="orders-table">
             <h3 style="margin-bottom: 20px;">📋 Список заказов</h3>
-            <table>
-                <thead>
-                    <tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr>
-                </thead>
-                <tbody>{orders_html}</tbody>
-            </table>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead>
+                    <tbody>{orders_html}</tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="orders-table" style="margin-top: 30px;">
+            <h3 style="margin-bottom: 20px;">💬 Сообщения поддержки</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>Дата</th><th>Имя</th><th>Email</th><th>Сообщение</th><th>Статус</th></tr></thead>
+                    <tbody>{messages_html}</tbody>
+                </table>
+            </div>
         </div>
     </div>
     ''' + HTML_FOOT
@@ -968,6 +1229,7 @@ def admin_update_order(order_id):
     conn.commit()
     conn.close()
     
+    flash('Статус заказа обновлен!')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/payments', methods=['GET', 'POST'])
@@ -992,7 +1254,7 @@ def admin_payments():
     
     msg = '<div class="flash-message">Реквизиты обновлены!</div>' if request.method == 'POST' else ''
     
-    return HTML_TEMPLATE + f'''
+    return HTML_HEAD + f'''
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">DISK Delovoi UC</div>
@@ -1025,6 +1287,49 @@ def admin_payments():
                 <button type="submit" class="btn" style="width: 100%;">💾 Сохранить</button>
             </form>
             <div style="text-align: center; margin-top: 20px;"><a href="/admin" style="color: rgba(255,255,255,0.7);">← Назад</a></div>
+        </div>
+    </div>
+    ''' + HTML_FOOT
+
+@app.route('/admin/messages')
+@admin_required
+def admin_messages():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM support_messages ORDER BY created_at DESC")
+    messages = cursor.fetchall()
+    cursor.execute("UPDATE support_messages SET status='read'")
+    conn.commit()
+    conn.close()
+    
+    messages_html = ''
+    for msg in messages:
+        messages_html += f'''
+        <div class="glass-card" style="margin-bottom: 16px; padding: 20px;">
+            <p><strong>📅 {msg['created_at'][:19]}</strong></p>
+            <p><strong>👤 {msg['user_name']}</strong> ({msg['user_email']})</p>
+            <p style="margin-top: 8px;">💬 {msg['message']}</p>
+        </div>
+        '''
+    
+    return HTML_HEAD + f'''
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">DISK Delovoi UC</div>
+            <div class="nav-links">
+                <a href="/admin">Админ-панель</a>
+                <a href="/admin/logout">Выйти</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="hero" style="padding-top: 100px;">
+            <h1>💬 Сообщения поддержки</h1>
+        </div>
+        {messages_html if messages_html else '<div class="glass-card" style="padding: 40px; text-align: center;">Нет сообщений</div>'}
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/admin" class="btn">← Назад</a>
         </div>
     </div>
     ''' + HTML_FOOT
