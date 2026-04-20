@@ -9,10 +9,9 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2'
+app.config['SESSION_TYPE'] = 'filesystem'
 
 SITE_NAME = "DiSK Delovoi UC"
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD_HASH = hashlib.sha256("admin123".encode()).hexdigest()
 
 # ==================== БАЗА ДАННЫХ ====================
 def get_db():
@@ -93,87 +92,53 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== HTML ШАБЛОН ====================
-HTML_HEAD = '''
+# ==================== HTML ТЕМПЛЕЙТ ====================
+BASE_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>DiSK Delovoi UC - Покупка UC для PUBG Mobile</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(ellipse at center, #0a0a2a 0%, #050510 100%);
+            background: radial-gradient(ellipse at 30% 40%, #0f0c29, #302b63, #24243e);
             min-height: 100vh;
             color: #fff;
             overflow-x: hidden;
+            position: relative;
         }
         
-        /* Фоновые элементы - всегда снизу */
-        .bg-elements {
+        /* Анимированный фон */
+        .animated-bg {
             position: fixed;
-            bottom: 0;
+            top: 0;
             left: 0;
-            right: 0;
-            height: 300px;
-            pointer-events: none;
+            width: 100%;
+            height: 100%;
             z-index: 0;
+            pointer-events: none;
             overflow: hidden;
         }
         
-        .bg-letter {
+        .floating-item {
             position: absolute;
-            bottom: -50px;
             font-family: 'Orbitron', monospace;
-            font-weight: 900;
-            font-size: 80px;
-            opacity: 0.15;
-            color: #7c3aed;
-            animation: floatUp 15s infinite ease-in-out;
+            font-weight: 800;
+            opacity: 0.12;
+            animation: floatUp 8s infinite ease-in-out;
         }
         
         @keyframes floatUp {
-            0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-            10% { opacity: 0.15; }
-            90% { opacity: 0.15; }
-            100% { transform: translateY(-400px) rotate(360deg); opacity: 0; }
-        }
-        
-        .bg-number {
-            position: absolute;
-            bottom: -30px;
-            font-family: 'Orbitron', monospace;
-            font-weight: 700;
-            font-size: 40px;
-            opacity: 0.1;
-            color: #a8b5e6;
-            animation: floatUpSlow 20s infinite ease-in-out;
-        }
-        
-        @keyframes floatUpSlow {
-            0% { transform: translateY(0); opacity: 0; }
-            10% { opacity: 0.1; }
-            90% { opacity: 0.1; }
-            100% { transform: translateY(-500px); opacity: 0; }
-        }
-        
-        .bg-triangle {
-            position: absolute;
-            width: 0;
-            height: 0;
-            border-left: 40px solid transparent;
-            border-right: 40px solid transparent;
-            border-bottom: 70px solid rgba(124, 58, 237, 0.08);
-            animation: spin 30s infinite linear;
-        }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.12; }
+            80% { opacity: 0.12; }
+            100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
         }
         
         .navbar {
@@ -181,11 +146,12 @@ HTML_HEAD = '''
             top: 0;
             left: 0;
             right: 0;
-            z-index: 1000;
+            z-index: 100;
             padding: 16px 32px;
-            background: rgba(10, 10, 30, 0.95);
+            background: rgba(15, 12, 41, 0.95);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+            border-bottom: 1px solid rgba(110, 87, 224, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         }
         
         .nav-container {
@@ -194,13 +160,14 @@ HTML_HEAD = '''
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
         }
         
         .logo {
             font-family: 'Orbitron', monospace;
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 800;
-            background: linear-gradient(135deg, #a8b5e6 0%, #7c3aed 50%, #ff6b6b 100%);
+            background: linear-gradient(135deg, #fff, #a855f7, #e879f9);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: 2px;
@@ -208,22 +175,24 @@ HTML_HEAD = '''
         
         .nav-links {
             display: flex;
-            gap: 32px;
+            gap: 28px;
+            flex-wrap: wrap;
         }
         
         .nav-links a {
-            color: rgba(255, 255, 255, 0.8);
+            color: rgba(255, 255, 255, 0.75);
             text-decoration: none;
             transition: all 0.3s;
+            font-weight: 500;
         }
         
         .nav-links a:hover {
-            color: #7c3aed;
-            text-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+            color: #a855f7;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
         }
         
         .hero {
-            padding: 140px 24px 80px;
+            padding: 130px 24px 70px;
             text-align: center;
             position: relative;
             z-index: 1;
@@ -231,16 +200,17 @@ HTML_HEAD = '''
         
         .hero h1 {
             font-family: 'Orbitron', monospace;
-            font-size: 72px;
+            font-size: 68px;
             font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, #a8b5e6 30%, #7c3aed 60%, #ff6b6b 100%);
+            background: linear-gradient(135deg, #fff, #a855f7, #e879f9, #f472b6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
+            letter-spacing: 3px;
         }
         
         .hero p {
-            font-size: 20px;
+            font-size: 18px;
             color: rgba(255, 255, 255, 0.7);
             max-width: 600px;
             margin: 0 auto;
@@ -254,67 +224,88 @@ HTML_HEAD = '''
             z-index: 1;
         }
         
+        .section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 32px;
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #a855f7, #e879f9);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
         .features-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 30px;
-            margin-bottom: 80px;
+            gap: 25px;
+            margin-bottom: 70px;
         }
         
         .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            border: 1px solid rgba(124, 58, 237, 0.2);
-            padding: 32px 24px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            padding: 30px 20px;
             text-align: center;
             transition: all 0.3s ease;
         }
         
         .glass-card:hover {
-            transform: translateY(-10px);
-            border-color: rgba(124, 58, 237, 0.5);
-            box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
+            transform: translateY(-8px);
+            border-color: rgba(168, 85, 247, 0.5);
+            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.15);
+            background: rgba(255, 255, 255, 0.07);
         }
         
         .feature-icon {
             font-size: 48px;
-            margin-bottom: 16px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .feature-card p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
         }
         
         .catalog-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 30px;
-            margin-bottom: 80px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 70px;
         }
         
         .product-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border-radius: 24px;
-            border: 1px solid rgba(124, 58, 237, 0.2);
-            padding: 32px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            padding: 28px;
             text-align: center;
             transition: all 0.3s ease;
         }
         
         .product-card:hover {
             transform: translateY(-5px);
-            border-color: #7c3aed;
-            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3);
+            border-color: #a855f7;
+            box-shadow: 0 15px 35px rgba(168, 85, 247, 0.2);
         }
         
         .product-amount {
             font-family: 'Orbitron', monospace;
-            font-size: 36px;
+            font-size: 34px;
             font-weight: 800;
-            color: #a8b5e6;
-            margin-bottom: 12px;
+            color: #c084fc;
+            margin-bottom: 10px;
         }
         
         .product-price {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 600;
             margin-bottom: 20px;
         }
@@ -322,33 +313,43 @@ HTML_HEAD = '''
         .btn {
             display: inline-block;
             padding: 12px 32px;
-            background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%);
+            background: linear-gradient(135deg, #a855f7, #e879f9);
             border: none;
-            border-radius: 40px;
+            border-radius: 50px;
             color: white;
             font-weight: 600;
             text-decoration: none;
             cursor: pointer;
             transition: all 0.3s;
+            font-size: 15px;
         }
         
         .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.4);
+            transform: scale(1.03);
+            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.4);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(168, 85, 247, 0.5);
+        }
+        
+        .btn-outline:hover {
+            background: rgba(168, 85, 247, 0.15);
         }
         
         .form-container {
             max-width: 550px;
             margin: 0 auto;
             padding: 40px;
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
             border-radius: 32px;
-            border: 1px solid rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.2);
         }
         
         .form-group {
-            margin-bottom: 24px;
+            margin-bottom: 22px;
         }
         
         .form-group label {
@@ -358,75 +359,67 @@ HTML_HEAD = '''
             color: rgba(255, 255, 255, 0.7);
         }
         
-        .form-group input, .form-group textarea {
+        .form-group input, .form-group textarea, .form-group select {
             width: 100%;
             padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(124, 58, 237, 0.2);
-            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(168, 85, 247, 0.25);
+            border-radius: 18px;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
+            transition: all 0.3s;
         }
         
-        .form-group input:focus, .form-group textarea:focus {
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
             outline: none;
-            border-color: #7c3aed;
-            box-shadow: 0 0 15px rgba(124, 58, 237, 0.3);
+            border-color: #a855f7;
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
         }
         
         .payment-info {
-            background: rgba(124, 58, 237, 0.1);
-            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(232, 121, 249, 0.08));
+            border-radius: 24px;
             padding: 24px;
-            margin: 20px 0;
-            border: 1px solid rgba(124, 58, 237, 0.2);
+            margin: 25px 0;
+            border: 1px solid rgba(168, 85, 247, 0.25);
         }
         
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 24px;
+            gap: 20px;
             margin-bottom: 40px;
         }
         
         .stat-card {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.04);
             border-radius: 24px;
             padding: 24px;
             text-align: center;
-            border: 1px solid rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.2);
         }
         
         .stat-number {
             font-family: 'Orbitron', monospace;
-            font-size: 36px;
+            font-size: 38px;
             font-weight: 700;
-            color: #a8b5e6;
+            color: #c084fc;
         }
         
         .admin-actions {
             display: flex;
-            gap: 16px;
+            gap: 15px;
             justify-content: center;
             margin-bottom: 40px;
             flex-wrap: wrap;
         }
         
-        .btn-outline {
-            background: transparent;
-            border: 1px solid rgba(124, 58, 237, 0.5);
-        }
-        
-        .btn-outline:hover {
-            background: rgba(124, 58, 237, 0.2);
-        }
-        
         .orders-table {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.04);
             border-radius: 24px;
             padding: 24px;
             overflow-x: auto;
-            border: 1px solid rgba(124, 58, 237, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.2);
         }
         
         table {
@@ -435,57 +428,59 @@ HTML_HEAD = '''
         }
         
         th, td {
-            padding: 12px;
+            padding: 14px 12px;
             text-align: left;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
         
         th {
-            color: #a8b5e6;
+            color: #c084fc;
+            font-weight: 600;
         }
         
         .flash-message {
             padding: 16px;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            background: rgba(124, 58, 237, 0.2);
-            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 18px;
+            margin-bottom: 25px;
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.35);
             text-align: center;
         }
         
         .footer {
             text-align: center;
             padding: 40px 24px;
-            border-top: 1px solid rgba(124, 58, 237, 0.2);
+            border-top: 1px solid rgba(168, 85, 247, 0.15);
             margin-top: 80px;
             color: rgba(255, 255, 255, 0.4);
             position: relative;
             z-index: 1;
+            font-size: 13px;
         }
         
-        /* Чат поддержки */
+        /* Чат виджет */
         .chat-widget {
             position: fixed;
             bottom: 30px;
             right: 30px;
-            z-index: 1000;
+            z-index: 200;
         }
         
         .chat-button {
             width: 60px;
             height: 60px;
-            background: linear-gradient(135deg, #7c3aed, #a8b5e6);
+            background: linear-gradient(135deg, #a855f7, #e879f9);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.4);
+            box-shadow: 0 5px 25px rgba(168, 85, 247, 0.5);
             transition: all 0.3s;
         }
         
         .chat-button:hover {
-            transform: scale(1.1);
+            transform: scale(1.08);
         }
         
         .chat-window {
@@ -493,14 +488,15 @@ HTML_HEAD = '''
             bottom: 80px;
             right: 0;
             width: 350px;
-            height: 500px;
-            background: rgba(10, 10, 30, 0.95);
+            height: 480px;
+            background: rgba(15, 12, 41, 0.98);
             backdrop-filter: blur(20px);
-            border-radius: 20px;
-            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 28px;
+            border: 1px solid rgba(168, 85, 247, 0.35);
             display: none;
             flex-direction: column;
             overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
         }
         
         .chat-window.open {
@@ -508,9 +504,12 @@ HTML_HEAD = '''
         }
         
         .chat-header {
-            padding: 16px;
-            background: rgba(124, 58, 237, 0.2);
-            border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(232, 121, 249, 0.1));
+            border-bottom: 1px solid rgba(168, 85, 247, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .chat-messages {
@@ -521,124 +520,145 @@ HTML_HEAD = '''
         
         .chat-message {
             margin-bottom: 12px;
-            padding: 8px 12px;
-            border-radius: 12px;
-            max-width: 80%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            max-width: 85%;
+            word-wrap: break-word;
         }
         
         .chat-message.user {
-            background: rgba(124, 58, 237, 0.2);
+            background: linear-gradient(135deg, #a855f7, #e879f9);
             margin-left: auto;
+            border-bottom-right-radius: 4px;
         }
         
         .chat-message.support {
             background: rgba(255, 255, 255, 0.1);
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
         }
         
         .chat-input {
             display: flex;
             padding: 16px;
-            border-top: 1px solid rgba(124, 58, 237, 0.3);
+            border-top: 1px solid rgba(168, 85, 247, 0.25);
+            gap: 10px;
         }
         
         .chat-input input {
             flex: 1;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            border-radius: 20px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 25px;
             color: white;
+            font-size: 14px;
         }
         
         .chat-input button {
-            margin-left: 8px;
-            padding: 10px 16px;
-            background: #7c3aed;
+            padding: 10px 18px;
+            background: linear-gradient(135deg, #a855f7, #e879f9);
             border: none;
-            border-radius: 20px;
+            border-radius: 25px;
             color: white;
             cursor: pointer;
         }
         
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 40px; }
+        .badge {
+            background: #e879f9;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 1024px) {
             .features-grid { grid-template-columns: repeat(2, 1fr); }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 40px; letter-spacing: 1px; }
+            .hero { padding: 110px 16px 50px; }
             .nav-links { display: none; }
             .catalog-grid { grid-template-columns: 1fr; }
-            .chat-window { width: 300px; height: 450px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .chat-window { width: 300px; height: 450px; right: -10px; }
+        }
+        
+        /* Стили для админки */
+        select, option {
+            background: #1e1b4b;
+            color: white;
+        }
+        
+        input[type="file"] {
+            color: rgba(255,255,255,0.7);
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #a855f7;
+            border-radius: 10px;
         }
     </style>
 </head>
 <body>
 '''
 
-HTML_FOOT = '''
+BASE_FOOTER = '''
     <div class="chat-widget">
         <div class="chat-button" onclick="toggleChat()">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2z"/>
-            </svg>
+            <i class="fas fa-headset" style="font-size: 26px;"></i>
         </div>
         <div class="chat-window" id="chatWindow">
             <div class="chat-header">
-                <strong>💬 Поддержка DiSK Delovoi UC</strong>
-                <span style="float: right; cursor: pointer;" onclick="toggleChat()">✕</span>
+                <strong><i class="fas fa-headset"></i> Поддержка DiSK</strong>
+                <span onclick="toggleChat()" style="cursor: pointer;">✕</span>
             </div>
             <div class="chat-messages" id="chatMessages">
-                <div class="chat-message support">Здравствуйте! Чем могу помочь?</div>
+                <div class="chat-message support">
+                    <i class="fas fa-robot"></i> Привет! Я помощник DiSK Delovoi UC. Напишите ваш вопрос, и мы ответим в ближайшее время!
+                </div>
             </div>
             <div class="chat-input">
                 <input type="text" id="chatInput" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendMessage()">
-                <button onclick="sendMessage()">Отправить</button>
+                <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
     
-    <div class="bg-elements" id="bgElements"></div>
+    <div class="animated-bg" id="animatedBg"></div>
     
     <div class="footer">
         <p>© 2024 DiSK Delovoi UC. Все права защищены.</p>
-        <p style="margin-top: 8px;">⚡ Киберпространство ждёт тебя ⚡</p>
+        <p style="margin-top: 6px;">⚡ Киберпространство ждёт тебя | UC для PUBG Mobile</p>
     </div>
     
     <script>
-        // Фоновые элементы
-        const letters = ['U', 'C', '▲', '●', '◆', 'UC'];
-        const numbers = ['60', '120', '180', '325', '660', '1320', '1800', '3850', '8100', '9900'];
+        // Создание анимированных элементов фона
+        const items = ['U', 'C', 'UC', '60', '120', '180', '325', '660', '1320', '1800', '▲', '●', '◆', '★', 'UC'];
         
-        for (let i = 0; i < 30; i++) {
-            const bgDiv = document.createElement('div');
-            const isLetter = Math.random() > 0.5;
-            
-            if (isLetter) {
-                const letter = letters[Math.floor(Math.random() * letters.length)];
-                bgDiv.className = 'bg-letter';
-                bgDiv.innerHTML = letter;
-                bgDiv.style.left = Math.random() * 100 + '%';
-                bgDiv.style.animationDelay = Math.random() * 10 + 's';
-                bgDiv.style.animationDuration = Math.random() * 10 + 10 + 's';
-                bgDiv.style.fontSize = (Math.random() * 60 + 40) + 'px';
-            } else {
-                const number = numbers[Math.floor(Math.random() * numbers.length)];
-                bgDiv.className = 'bg-number';
-                bgDiv.innerHTML = number;
-                bgDiv.style.left = Math.random() * 100 + '%';
-                bgDiv.style.animationDelay = Math.random() * 10 + 's';
-                bgDiv.style.animationDuration = Math.random() * 15 + 15 + 's';
-            }
-            
-            document.getElementById('bgElements').appendChild(bgDiv);
-        }
-        
-        for (let i = 0; i < 15; i++) {
-            const triangle = document.createElement('div');
-            triangle.className = 'bg-triangle';
-            triangle.style.left = Math.random() * 100 + '%';
-            triangle.style.bottom = Math.random() * 200 + 'px';
-            triangle.style.animationDelay = Math.random() * 20 + 's';
-            triangle.style.animationDuration = Math.random() * 20 + 20 + 's';
-            document.getElementById('bgElements').appendChild(triangle);
+        for (let i = 0; i < 45; i++) {
+            const el = document.createElement('div');
+            const randomItem = items[Math.floor(Math.random() * items.length)];
+            el.className = 'floating-item';
+            el.innerHTML = randomItem;
+            el.style.left = Math.random() * 100 + '%';
+            el.style.fontSize = (Math.random() * 35 + 20) + 'px';
+            el.style.animationDelay = Math.random() * 10 + 's';
+            el.style.animationDuration = (Math.random() * 10 + 7) + 's';
+            el.style.color = randomItem === 'U' || randomItem === 'C' || randomItem === 'UC' ? '#c084fc' : '#e879f9';
+            document.getElementById('animatedBg').appendChild(el);
         }
         
         // Чат
@@ -655,7 +675,7 @@ HTML_FOOT = '''
             const messagesDiv = document.getElementById('chatMessages');
             const userMsg = document.createElement('div');
             userMsg.className = 'chat-message user';
-            userMsg.innerHTML = message;
+            userMsg.innerHTML = '<i class="fas fa-user"></i> ' + escapeHtml(message);
             messagesDiv.appendChild(userMsg);
             
             fetch('/support/send', {
@@ -666,53 +686,67 @@ HTML_FOOT = '''
             
             const supportMsg = document.createElement('div');
             supportMsg.className = 'chat-message support';
-            supportMsg.innerHTML = 'Спасибо за обращение! Мы ответим вам в ближайшее время.';
+            supportMsg.innerHTML = '<i class="fas fa-robot"></i> Спасибо! Мы ответим вам в ближайшее время.';
             messagesDiv.appendChild(supportMsg);
             
             input.value = '';
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Авто-обновление flash сообщений
+        setTimeout(() => {
+            const flash = document.querySelector('.flash-message');
+            if (flash) setTimeout(() => flash.style.display = 'none', 5000);
+        }, 100);
     </script>
+    <script src="https://kit.fontawesome.com/a2b8d7c8c1.js" crossorigin="anonymous"></script>
 </body>
 </html>
 '''
 
-# ==================== МАРШРУТЫ ====================
+# ==================== СТРАНИЦЫ ====================
 @app.route('/')
 def index():
-    return HTML_HEAD + '''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-                <a href="/support">Поддержка</a>
-                ''' + ("<a href='/admin'>Админ-панель</a>" if session.get('admin_logged_in') else "") + '''
+                <a href="/"><i class="fas fa-home"></i> Главная</a>
+                <a href="/catalog"><i class="fas fa-store"></i> Каталог</a>
+                <a href="/check"><i class="fas fa-search"></i> Проверить заказ</a>
+                <a href="/support"><i class="fas fa-headset"></i> Поддержка</a>
             </div>
         </div>
     </nav>
+    '''
     
+    content = '''
     <div class="hero">
-        <h1>🛡️ DISK Delovoi UC</h1>
+        <h1><i class="fas fa-gem"></i> DiSK Delovoi UC</h1>
         <p>Безопасная покупка UC для PUBG Mobile в киберпространстве</p>
     </div>
     
     <div class="container">
         <div class="features-grid">
-            <div class="glass-card"><div class="feature-icon">🔒</div><h3>100% Безопасность</h3><p>Гарантия получения UC</p></div>
-            <div class="glass-card"><div class="feature-icon">⚡</div><h3>Мгновенная доставка</h3><p>UC приходят сразу</p></div>
-            <div class="glass-card"><div class="feature-icon">💰</div><h3>Лучшие цены</h3><p>Низкие цены на рынке</p></div>
-            <div class="glass-card"><div class="feature-icon">🌐</div><h3>Поддержка 24/7</h3><p>Поможем в любой ситуации</p></div>
+            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-shield-alt"></i></div><h3>100% Безопасность</h3><p>Гарантия получения UC</p></div>
+            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h3>Мгновенная доставка</h3><p>UC приходят сразу</p></div>
+            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-tag"></i></div><h3>Лучшие цены</h3><p>Низкие цены на рынке</p></div>
+            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-clock"></i></div><h3>Поддержка 24/7</h3><p>Поможем в любой ситуации</p></div>
         </div>
         
         <div style="text-align: center; margin-bottom: 60px;">
-            <a href="/catalog" class="btn">🚀 Войти в каталог UC</a>
+            <a href="/catalog" class="btn"><i class="fas fa-rocket"></i> Войти в каталог UC</a>
         </div>
         
         <div class="glass-card" style="padding: 40px; text-align: center;">
-            <h3 style="margin-bottom: 20px;">🔍 Проверить статус заказа</h3>
+            <h3 style="margin-bottom: 20px;"><i class="fas fa-search"></i> Проверить статус заказа</h3>
             <form method="post" action="/check-order" style="max-width: 400px; margin: 0 auto;">
                 <div class="form-group">
                     <input type="text" name="order_num" placeholder="Введите номер заказа" required>
@@ -721,7 +755,9 @@ def index():
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/catalog')
 def catalog():
@@ -731,33 +767,37 @@ def catalog():
         <div class="product-card">
             <div class="product-amount">{amount} UC</div>
             <div class="product-price">{format_price(price)} ₽</div>
-            <a href="/order/{amount}" class="btn">Купить</a>
+            <a href="/order/{amount}" class="btn"><i class="fas fa-shopping-cart"></i> Купить</a>
         </div>
         '''
     
-    return HTML_HEAD + '''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-                <a href="/support">Поддержка</a>
+                <a href="/"><i class="fas fa-home"></i> Главная</a>
+                <a href="/catalog"><i class="fas fa-store"></i> Каталог</a>
+                <a href="/check"><i class="fas fa-search"></i> Проверить заказ</a>
+                <a href="/support"><i class="fas fa-headset"></i> Поддержка</a>
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>🛒 Каталог UC</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-store"></i> Каталог UC</h1>
             <p>Выберите нужное количество UC для вашего аккаунта</p>
         </div>
         <div class="catalog-grid">
-            ''' + items + '''
+            {items}
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/order/<int:amount>', methods=['GET', 'POST'])
 def order(amount):
@@ -789,10 +829,10 @@ def order(amount):
         
         return redirect(url_for('payment', order_num=order_num))
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
@@ -801,10 +841,12 @@ def order(amount):
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>📝 Оформление заказа</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-file-alt"></i> Оформление заказа</h1>
         </div>
         <div class="form-container">
             <div style="text-align: center; margin-bottom: 30px;">
@@ -813,26 +855,28 @@ def order(amount):
             </div>
             <form method="post">
                 <div class="form-group">
-                    <label>👤 Ваше имя *</label>
+                    <label><i class="fas fa-user"></i> Ваше имя *</label>
                     <input type="text" name="user_name" required placeholder="Иван Иванов">
                 </div>
                 <div class="form-group">
-                    <label>📞 Телефон *</label>
+                    <label><i class="fas fa-phone"></i> Телефон *</label>
                     <input type="tel" name="user_phone" required placeholder="+7 999 123-45-67">
                 </div>
                 <div class="form-group">
-                    <label>📧 Email</label>
+                    <label><i class="fas fa-envelope"></i> Email</label>
                     <input type="email" name="user_email" placeholder="ivan@example.com">
                 </div>
                 <div class="form-group">
-                    <label>🎮 PUBG ID *</label>
+                    <label><i class="fas fa-gamepad"></i> PUBG ID *</label>
                     <input type="text" name="game_id" required placeholder="Введите ваш игровой ID">
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">✅ Перейти к оплате</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-credit-card"></i> Перейти к оплате</button>
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/payment/<order_num>')
 def payment(order_num):
@@ -848,10 +892,10 @@ def payment(order_num):
         flash('Заказ не найден!')
         return redirect(url_for('catalog'))
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
@@ -860,41 +904,45 @@ def payment(order_num):
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>💳 Оплата заказа</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-credit-card"></i> Оплата заказа</h1>
             <p>Заказ #{order_num}</p>
         </div>
         <div class="form-container">
             <div style="text-align: center; margin-bottom: 30px;">
                 <div class="product-amount">{order['uc_amount']} UC</div>
                 <div class="product-price">{format_price(order['uc_price'])} ₽</div>
-                <p style="margin-top: 10px;">🎮 ID: {order['game_id']}</p>
+                <p style="margin-top: 10px;"><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
             </div>
             
             <div class="payment-info">
-                <h3 style="margin-bottom: 16px;">💳 Реквизиты для оплаты</h3>
-                <p><strong>Карта:</strong> {payment['card_number'] or 'Не указана'}</p>
-                <p><strong>Кошелек:</strong> {payment['wallet_number'] or 'Не указан'}</p>
-                <p><strong>Инструкция:</strong> {payment['instruction']}</p>
-                <p style="margin-top: 16px; color: #f87171;">⚠️ Важно: Переведите точную сумму {format_price(order['uc_price'])} ₽</p>
+                <h3 style="margin-bottom: 16px;"><i class="fas fa-credit-card"></i> Реквизиты для оплаты</h3>
+                <p><strong><i class="fas fa-credit-card"></i> Карта:</strong> {payment['card_number'] or 'Не указана'}</p>
+                <p><strong><i class="fas fa-wallet"></i> Кошелек:</strong> {payment['wallet_number'] or 'Не указан'}</p>
+                <p><strong><i class="fas fa-info-circle"></i> Инструкция:</strong> {payment['instruction']}</p>
+                <p style="margin-top: 16px; color: #f472b6;"><i class="fas fa-exclamation-triangle"></i> Важно: Переведите точную сумму {format_price(order['uc_price'])} ₽</p>
             </div>
             
             <form method="post" action="/payment-proof/{order_num}" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label>📎 Прикрепите чек (скриншот или фото)</label>
+                    <label><i class="fas fa-image"></i> Прикрепите чек (скриншот или фото)</label>
                     <input type="file" name="proof_file" accept="image/*">
                 </div>
                 <div class="form-group">
-                    <label>Или введите текст подтверждения</label>
+                    <label><i class="fas fa-pen"></i> Или введите текст подтверждения</label>
                     <textarea name="proof_text" rows="3" placeholder="Номер транзакции, дата, сумма..."></textarea>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">📨 Отправить чек</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-paper-plane"></i> Отправить чек</button>
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/payment-proof/<order_num>', methods=['POST'])
 def payment_proof(order_num):
@@ -923,11 +971,12 @@ def order_status(order_num):
         return redirect(url_for('catalog'))
     
     status_text = "🆕 Новый" if order['status'] == 'new' else "⏳ Ожидает подтверждения" if order['status'] == 'waiting_confirm' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
+    status_color = "#c084fc" if order['status'] == 'new' else "#f472b6" if order['status'] == 'waiting_confirm' else "#10b981" if order['status'] == 'completed' else "#ef4444"
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
@@ -936,24 +985,28 @@ def order_status(order_num):
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>📋 Статус заказа</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-clipboard-list"></i> Статус заказа</h1>
             <p>Заказ #{order_num}</p>
         </div>
         <div class="glass-card" style="padding: 40px; max-width: 600px; margin: 0 auto; text-align: center;">
             <div class="product-amount">{order['uc_amount']} UC</div>
             <div class="product-price">{format_price(order['uc_price'])} ₽</div>
-            <p style="margin-top: 16px;">🎮 ID: {order['game_id']}</p>
-            <p style="margin-top: 8px;">📅 {order['created_at'][:19]}</p>
-            <div style="margin: 20px 0; padding: 12px; border-radius: 16px; background: rgba(124,58,237,0.1);">
-                <strong>Статус:</strong> {status_text}
+            <p style="margin-top: 16px;"><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
+            <p style="margin-top: 8px;"><i class="fas fa-calendar"></i> {order['created_at'][:19]}</p>
+            <div style="margin: 25px 0; padding: 15px; border-radius: 20px; background: rgba(168,85,247,0.1);">
+                <strong>Статус:</strong> <span style="color: {status_color};">{status_text}</span>
             </div>
-            <a href="/catalog" class="btn">🛒 Продолжить покупки</a>
+            <a href="/catalog" class="btn"><i class="fas fa-shopping-cart"></i> Продолжить покупки</a>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/check-order', methods=['POST'])
 def check_order():
@@ -962,10 +1015,10 @@ def check_order():
 
 @app.route('/check')
 def check_page():
-    return HTML_HEAD + '''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
@@ -973,10 +1026,12 @@ def check_page():
             </div>
         </div>
     </nav>
+    '''
     
+    content = '''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>🔍 Проверка заказа</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-search"></i> Проверка заказа</h1>
             <p>Введите номер заказа для проверки статуса</p>
         </div>
         <div class="form-container">
@@ -984,18 +1039,20 @@ def check_page():
                 <div class="form-group">
                     <input type="text" name="order_num" placeholder="Номер заказа" required>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">Проверить</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-search"></i> Проверить</button>
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/support')
 def support_page():
-    return HTML_HEAD + '''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
@@ -1003,31 +1060,35 @@ def support_page():
             </div>
         </div>
     </nav>
+    '''
     
+    content = '''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>💬 Служба поддержки</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-headset"></i> Служба поддержки</h1>
             <p>Напишите нам, и мы ответим в ближайшее время</p>
         </div>
         <div class="form-container">
             <form method="post" action="/support/send-form">
                 <div class="form-group">
-                    <label>👤 Ваше имя</label>
+                    <label><i class="fas fa-user"></i> Ваше имя</label>
                     <input type="text" name="user_name" required>
                 </div>
                 <div class="form-group">
-                    <label>📧 Email</label>
+                    <label><i class="fas fa-envelope"></i> Email</label>
                     <input type="email" name="user_email" required>
                 </div>
                 <div class="form-group">
-                    <label>💬 Сообщение</label>
+                    <label><i class="fas fa-comment"></i> Сообщение</label>
                     <textarea name="message" rows="5" required></textarea>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">📨 Отправить</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-paper-plane"></i> Отправить</button>
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/support/send', methods=['POST'])
 def send_support_message():
@@ -1036,7 +1097,7 @@ def send_support_message():
         conn = get_db()
         cursor = conn.cursor()
         cursor.execute("INSERT INTO support_messages (user_name, user_email, message) VALUES (?, ?, ?)",
-                      ('Пользователь чата', 'chat@user.com', message))
+                      ('Чат пользователь', 'chat@user.com', message))
         conn.commit()
         conn.close()
     return '', 200
@@ -1068,34 +1129,49 @@ def admin_login():
         username = request.form.get('username')
         password = request.form.get('password')
         password_hash = hashlib.sha256(password.encode()).hexdigest()
+        admin_hash = hashlib.sha256('admin123'.encode()).hexdigest()
         
-        if username == ADMIN_USERNAME and password_hash == ADMIN_PASSWORD_HASH:
+        if username == 'admin' and password_hash == admin_hash:
             session['admin_logged_in'] = True
             return redirect(url_for('admin_dashboard'))
         else:
             error = 'Неверный логин или пароль!'
     
-    return HTML_HEAD + f'''
+    nav = '''
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
+            <div class="nav-links">
+                <a href="/">Главная</a>
+                <a href="/catalog">Каталог</a>
+            </div>
+        </div>
+    </nav>
+    '''
+    
+    content = f'''
     <div class="container">
         <div class="hero" style="padding-top: 120px;">
-            <h1>👑 Вход в админ-панель</h1>
+            <h1><i class="fas fa-crown"></i> Вход в админ-панель</h1>
         </div>
         <div class="form-container">
-            {f'<div class="flash-message">{error}</div>' if error else ''}
+            {f'<div class="flash-message"><i class="fas fa-exclamation-triangle"></i> {error}</div>' if error else ''}
             <form method="post">
                 <div class="form-group">
-                    <label>Логин</label>
+                    <label><i class="fas fa-user"></i> Логин</label>
                     <input type="text" name="username" required>
                 </div>
                 <div class="form-group">
-                    <label>Пароль</label>
+                    <label><i class="fas fa-lock"></i> Пароль</label>
                     <input type="password" name="password" required>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">Войти</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-sign-in-alt"></i> Войти</button>
             </form>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -1141,8 +1217,8 @@ def admin_dashboard():
             <td>{format_price(order['uc_price'])} ₽</td>
             <td>{status_class}</td>
             <td>
-                <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px;">
-                    <select name="status">
+                <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <select name="status" style="padding: 6px 12px; border-radius: 12px; background: #1e1b4b;">
                         <option value="new">Новый</option>
                         <option value="waiting_confirm">Ожидает</option>
                         <option value="completed">Завершен</option>
@@ -1161,25 +1237,27 @@ def admin_dashboard():
             <td>{msg['created_at'][:16]}</td>
             <td>{msg['user_name']}</td>
             <td>{msg['user_email']}</td>
-            <td style="max-width: 300px;">{msg['message'][:100]}</td>
-            <td>{'🆕 Новое' if msg['status'] == 'new' else '✅ Прочитано'}</td>
+            <td style="max-width: 300px;">{msg['message'][:80]}...</td>
+            <td>{"🆕 Новое" if msg['status'] == 'new' else "✅ Прочитано"}</td>
         </tr>
         '''
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
-                <a href="/admin/logout">Выйти</a>
+                <a href="/admin/logout"><i class="fas fa-sign-out-alt"></i> Выйти</a>
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>👑 Админ-панель</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-crown"></i> Админ-панель</h1>
             <p>Управление заказами, реквизитами и сообщениями</p>
         </div>
         
@@ -1191,32 +1269,38 @@ def admin_dashboard():
         </div>
         
         <div class="admin-actions">
-            <a href="/admin/payments" class="btn btn-outline">💳 Реквизиты</a>
-            <a href="/admin/messages" class="btn btn-outline">💬 Сообщения ({new_messages})</a>
-            <a href="/admin/logout" class="btn btn-outline">🚪 Выйти</a>
+            <a href="/admin/payments" class="btn btn-outline"><i class="fas fa-credit-card"></i> Реквизиты</a>
+            <a href="/admin/messages" class="btn btn-outline"><i class="fas fa-envelope"></i> Сообщения <span class="badge">{new_messages}</span></a>
+            <a href="/admin/logout" class="btn btn-outline"><i class="fas fa-sign-out-alt"></i> Выйти</a>
         </div>
         
         <div class="orders-table">
-            <h3 style="margin-bottom: 20px;">📋 Список заказов</h3>
+            <h3 style="margin-bottom: 20px;"><i class="fas fa-box"></i> Список заказов</h3>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead>
+                    <thead>
+                        <tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr>
+                    </thead>
                     <tbody>{orders_html}</tbody>
                 </table>
             </div>
         </div>
         
         <div class="orders-table" style="margin-top: 30px;">
-            <h3 style="margin-bottom: 20px;">💬 Сообщения поддержки</h3>
+            <h3 style="margin-bottom: 20px;"><i class="fas fa-comments"></i> Сообщения поддержки</h3>
             <div style="overflow-x: auto;">
                 <table>
-                    <thead><tr><th>Дата</th><th>Имя</th><th>Email</th><th>Сообщение</th><th>Статус</th></tr></thead>
+                    <thead>
+                        <tr><th>Дата</th><th>Имя</th><th>Email</th><th>Сообщение</th><th>Статус</th></tr>
+                    </thead>
                     <tbody>{messages_html}</tbody>
                 </table>
             </div>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/admin/order/<int:order_id>', methods=['POST'])
 @admin_required
@@ -1252,44 +1336,48 @@ def admin_payments():
     payment = cursor.fetchone()
     conn.close()
     
-    msg = '<div class="flash-message">Реквизиты обновлены!</div>' if request.method == 'POST' else ''
+    msg = '<div class="flash-message"><i class="fas fa-check-circle"></i> Реквизиты обновлены!</div>' if request.method == 'POST' else ''
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/admin">Админ-панель</a>
                 <a href="/admin/logout">Выйти</a>
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>💳 Настройка реквизитов</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-credit-card"></i> Настройка реквизитов</h1>
         </div>
         <div class="form-container">
             {msg}
             <form method="post">
                 <div class="form-group">
-                    <label>Номер карты</label>
+                    <label><i class="fas fa-credit-card"></i> Номер карты</label>
                     <input type="text" name="card_number" value="{payment['card_number'] or ''}" placeholder="1234 5678 9012 3456">
                 </div>
                 <div class="form-group">
-                    <label>Номер кошелька</label>
+                    <label><i class="fas fa-wallet"></i> Номер кошелька</label>
                     <input type="text" name="wallet_number" value="{payment['wallet_number'] or ''}" placeholder="+7 999 123-45-67">
                 </div>
                 <div class="form-group">
-                    <label>Инструкция по оплате</label>
+                    <label><i class="fas fa-info-circle"></i> Инструкция по оплате</label>
                     <textarea name="instruction" rows="4">{payment['instruction'] or ''}</textarea>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">💾 Сохранить</button>
+                <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-save"></i> Сохранить</button>
             </form>
             <div style="text-align: center; margin-top: 20px;"><a href="/admin" style="color: rgba(255,255,255,0.7);">← Назад</a></div>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 @app.route('/admin/messages')
 @admin_required
@@ -1306,36 +1394,40 @@ def admin_messages():
     for msg in messages:
         messages_html += f'''
         <div class="glass-card" style="margin-bottom: 16px; padding: 20px;">
-            <p><strong>📅 {msg['created_at'][:19]}</strong></p>
-            <p><strong>👤 {msg['user_name']}</strong> ({msg['user_email']})</p>
-            <p style="margin-top: 8px;">💬 {msg['message']}</p>
+            <p><strong><i class="fas fa-calendar"></i> {msg['created_at'][:19]}</strong></p>
+            <p><strong><i class="fas fa-user"></i> {msg['user_name']}</strong> (<i class="fas fa-envelope"></i> {msg['user_email']})</p>
+            <p style="margin-top: 10px;"><i class="fas fa-comment"></i> {msg['message']}</p>
         </div>
         '''
     
-    return HTML_HEAD + f'''
+    nav = '''
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">DISK Delovoi UC</div>
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
             <div class="nav-links">
                 <a href="/admin">Админ-панель</a>
                 <a href="/admin/logout">Выйти</a>
             </div>
         </div>
     </nav>
+    '''
     
+    content = f'''
     <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>💬 Сообщения поддержки</h1>
+        <div class="hero" style="padding-top: 110px;">
+            <h1><i class="fas fa-envelope"></i> Сообщения поддержки</h1>
         </div>
-        {messages_html if messages_html else '<div class="glass-card" style="padding: 40px; text-align: center;">Нет сообщений</div>'}
+        {messages_html if messages_html else '<div class="glass-card" style="padding: 40px; text-align: center;">📭 Нет сообщений</div>'}
         <div style="text-align: center; margin-top: 30px;">
             <a href="/admin" class="btn">← Назад</a>
         </div>
     </div>
-    ''' + HTML_FOOT
+    '''
+    
+    return BASE_TEMPLATE + nav + content + BASE_FOOTER
 
 # ==================== ЗАПУСК ====================
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
