@@ -23,7 +23,7 @@ app = Flask(__name__)
 # 3. Введите: import secrets; print(secrets.token_hex(32))
 # 4. Скопируйте результат и вставьте ниже
 
-SECRET_KEY = 'a7f3e8d9c2b1a5f4e8d9c2b1a5f4e8d9c2b1a5f4e8d9c2b1a5f4e8d9c2b1a5f4'  # ЗАМЕНИТЕ НА СВОЙ!
+SECRET_KEY = '-ZsB;T)J$.wm(eQ;;c(KEVGT&kI3BJzv'  # ЗАМЕНИТЕ НА СВОЙ!
 app.secret_key = SECRET_KEY
 
 # ==================== КОНФИГУРАЦИЯ ====================
