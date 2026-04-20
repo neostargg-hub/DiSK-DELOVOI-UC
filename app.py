@@ -9,7 +9,6 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2'
-app.config['SESSION_TYPE'] = 'filesystem'
 
 SITE_NAME = "DiSK Delovoi UC"
 
@@ -55,7 +54,6 @@ def init_db():
         user_email TEXT,
         message TEXT,
         status TEXT DEFAULT 'new',
-        reply TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -107,14 +105,13 @@ BASE_TEMPLATE = '''
         
         body {
             font-family: 'Inter', sans-serif;
-            background: radial-gradient(ellipse at 30% 40%, #0f0c29, #302b63, #24243e);
+            background: linear-gradient(135deg, #0f0c29 0%, #1a1a3e 50%, #24243e 100%);
             min-height: 100vh;
             color: #fff;
             overflow-x: hidden;
-            position: relative;
         }
         
-        /* Анимированный фон */
+        /* Анимированный фон - яркие летающие элементы */
         .animated-bg {
             position: fixed;
             top: 0;
@@ -126,19 +123,156 @@ BASE_TEMPLATE = '''
             overflow: hidden;
         }
         
-        .floating-item {
+        .floating-uc {
             position: absolute;
             font-family: 'Orbitron', monospace;
-            font-weight: 800;
-            opacity: 0.12;
-            animation: floatUp 8s infinite ease-in-out;
+            font-weight: 900;
+            font-size: 45px;
+            opacity: 0.25;
+            animation: floatUC 12s infinite ease-in-out;
+            text-shadow: 0 0 15px rgba(168,85,247,0.6);
         }
         
-        @keyframes floatUp {
+        @keyframes floatUC {
             0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-            10% { opacity: 0.12; }
-            80% { opacity: 0.12; }
+            10% { opacity: 0.25; }
+            80% { opacity: 0.25; }
             100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+        }
+        
+        .floating-number {
+            position: absolute;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            font-size: 28px;
+            opacity: 0.2;
+            animation: floatNumber 15s infinite ease-in-out;
+            text-shadow: 0 0 10px rgba(232,121,249,0.5);
+        }
+        
+        @keyframes floatNumber {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.2; }
+            80% { opacity: 0.2; }
+            100% { transform: translateY(-150px) rotate(360deg); opacity: 0; }
+        }
+        
+        .floating-shape {
+            position: absolute;
+            opacity: 0.15;
+            animation: floatShape 20s infinite linear;
+        }
+        
+        @keyframes floatShape {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 0.15; }
+            80% { opacity: 0.15; }
+            100% { transform: translateY(-200px) rotate(720deg); opacity: 0; }
+        }
+        
+        /* Солнце в углу */
+        .sun {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 80px;
+            height: 80px;
+            background: radial-gradient(circle, #fbbf24, #f59e0b, #d97706);
+            border-radius: 50%;
+            z-index: 50;
+            box-shadow: 0 0 50px rgba(251,191,36,0.5);
+            animation: sunGlow 3s infinite alternate;
+            cursor: pointer;
+        }
+        
+        @keyframes sunGlow {
+            0% { box-shadow: 0 0 20px rgba(251,191,36,0.3); transform: scale(1); }
+            100% { box-shadow: 0 0 60px rgba(251,191,36,0.8); transform: scale(1.05); }
+        }
+        
+        /* Боковое меню */
+        .menu-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #a855f7, #e879f9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 200;
+            box-shadow: 0 5px 20px rgba(168,85,247,0.4);
+            transition: all 0.3s;
+        }
+        
+        .menu-toggle:hover {
+            transform: scale(1.05);
+        }
+        
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 280px;
+            height: 100%;
+            background: rgba(15, 12, 41, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 150;
+            transition: left 0.4s ease;
+            border-right: 1px solid rgba(168,85,247,0.3);
+            padding: 80px 20px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .side-menu.open {
+            left: 0;
+        }
+        
+        .side-menu a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 16px;
+        }
+        
+        .side-menu a:hover {
+            background: rgba(168,85,247,0.2);
+            color: #c084fc;
+            transform: translateX(5px);
+        }
+        
+        .side-menu .close-menu {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 140;
+            display: none;
+        }
+        
+        .overlay.active {
+            display: block;
         }
         
         .navbar {
@@ -148,51 +282,31 @@ BASE_TEMPLATE = '''
             right: 0;
             z-index: 100;
             padding: 16px 32px;
-            background: rgba(15, 12, 41, 0.95);
+            background: rgba(15, 12, 41, 0.9);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(110, 87, 224, 0.3);
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(168,85,247,0.3);
         }
         
         .nav-container {
             max-width: 1400px;
             margin: 0 auto;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
-            flex-wrap: wrap;
         }
         
         .logo {
             font-family: 'Orbitron', monospace;
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 800;
-            background: linear-gradient(135deg, #fff, #a855f7, #e879f9);
+            background: linear-gradient(135deg, #fff, #a855f7, #e879f9, #fbbf24);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: 2px;
         }
         
-        .nav-links {
-            display: flex;
-            gap: 28px;
-            flex-wrap: wrap;
-        }
-        
-        .nav-links a {
-            color: rgba(255, 255, 255, 0.75);
-            text-decoration: none;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-        
-        .nav-links a:hover {
-            color: #a855f7;
-            text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
-        }
-        
         .hero {
-            padding: 130px 24px 70px;
+            padding: 120px 24px 70px;
             text-align: center;
             position: relative;
             z-index: 1;
@@ -200,13 +314,12 @@ BASE_TEMPLATE = '''
         
         .hero h1 {
             font-family: 'Orbitron', monospace;
-            font-size: 68px;
+            font-size: 64px;
             font-weight: 800;
-            background: linear-gradient(135deg, #fff, #a855f7, #e879f9, #f472b6);
+            background: linear-gradient(135deg, #fff, #a855f7, #e879f9, #fbbf24);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 20px;
-            letter-spacing: 3px;
         }
         
         .hero p {
@@ -224,16 +337,6 @@ BASE_TEMPLATE = '''
             z-index: 1;
         }
         
-        .section-title {
-            font-family: 'Orbitron', monospace;
-            font-size: 32px;
-            text-align: center;
-            margin-bottom: 40px;
-            background: linear-gradient(135deg, #a855f7, #e879f9);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
         .features-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -242,10 +345,10 @@ BASE_TEMPLATE = '''
         }
         
         .glass-card {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(12px);
             border-radius: 28px;
-            border: 1px solid rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168,85,247,0.25);
             padding: 30px 20px;
             text-align: center;
             transition: all 0.3s ease;
@@ -253,24 +356,14 @@ BASE_TEMPLATE = '''
         
         .glass-card:hover {
             transform: translateY(-8px);
-            border-color: rgba(168, 85, 247, 0.5);
-            box-shadow: 0 20px 40px rgba(168, 85, 247, 0.15);
-            background: rgba(255, 255, 255, 0.07);
+            border-color: #a855f7;
+            box-shadow: 0 20px 40px rgba(168,85,247,0.2);
+            background: rgba(255,255,255,0.08);
         }
         
         .feature-icon {
             font-size: 48px;
             margin-bottom: 15px;
-        }
-        
-        .feature-card h3 {
-            font-size: 20px;
-            margin-bottom: 8px;
-        }
-        
-        .feature-card p {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
         }
         
         .catalog-grid {
@@ -281,10 +374,10 @@ BASE_TEMPLATE = '''
         }
         
         .product-card {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(12px);
             border-radius: 28px;
-            border: 1px solid rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168,85,247,0.25);
             padding: 28px;
             text-align: center;
             transition: all 0.3s ease;
@@ -293,7 +386,7 @@ BASE_TEMPLATE = '''
         .product-card:hover {
             transform: translateY(-5px);
             border-color: #a855f7;
-            box-shadow: 0 15px 35px rgba(168, 85, 247, 0.2);
+            box-shadow: 0 15px 35px rgba(168,85,247,0.2);
         }
         
         .product-amount {
@@ -326,26 +419,17 @@ BASE_TEMPLATE = '''
         
         .btn:hover {
             transform: scale(1.03);
-            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.4);
-        }
-        
-        .btn-outline {
-            background: transparent;
-            border: 1px solid rgba(168, 85, 247, 0.5);
-        }
-        
-        .btn-outline:hover {
-            background: rgba(168, 85, 247, 0.15);
+            box-shadow: 0 8px 25px rgba(168,85,247,0.4);
         }
         
         .form-container {
             max-width: 550px;
             margin: 0 auto;
             padding: 40px;
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(12px);
             border-radius: 32px;
-            border: 1px solid rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168,85,247,0.25);
         }
         
         .form-group {
@@ -363,25 +447,24 @@ BASE_TEMPLATE = '''
             width: 100%;
             padding: 14px 16px;
             background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(168, 85, 247, 0.25);
+            border: 1px solid rgba(168,85,247,0.3);
             border-radius: 18px;
             color: white;
             font-size: 15px;
-            transition: all 0.3s;
         }
         
-        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+        .form-group input:focus, .form-group textarea:focus {
             outline: none;
             border-color: #a855f7;
-            box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+            box-shadow: 0 0 12px rgba(168,85,247,0.3);
         }
         
         .payment-info {
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(232, 121, 249, 0.08));
+            background: linear-gradient(135deg, rgba(168,85,247,0.12), rgba(232,121,249,0.08));
             border-radius: 24px;
             padding: 24px;
             margin: 25px 0;
-            border: 1px solid rgba(168, 85, 247, 0.25);
+            border: 1px solid rgba(168,85,247,0.3);
         }
         
         .stats-grid {
@@ -392,11 +475,11 @@ BASE_TEMPLATE = '''
         }
         
         .stat-card {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 24px;
             padding: 24px;
             text-align: center;
-            border: 1px solid rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168,85,247,0.25);
         }
         
         .stat-number {
@@ -415,11 +498,11 @@ BASE_TEMPLATE = '''
         }
         
         .orders-table {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 24px;
             padding: 24px;
             overflow-x: auto;
-            border: 1px solid rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168,85,247,0.25);
         }
         
         table {
@@ -435,27 +518,25 @@ BASE_TEMPLATE = '''
         
         th {
             color: #c084fc;
-            font-weight: 600;
         }
         
         .flash-message {
             padding: 16px;
             border-radius: 18px;
             margin-bottom: 25px;
-            background: rgba(168, 85, 247, 0.15);
-            border: 1px solid rgba(168, 85, 247, 0.35);
+            background: rgba(168,85,247,0.15);
+            border: 1px solid rgba(168,85,247,0.35);
             text-align: center;
         }
         
         .footer {
             text-align: center;
             padding: 40px 24px;
-            border-top: 1px solid rgba(168, 85, 247, 0.15);
+            border-top: 1px solid rgba(168,85,247,0.15);
             margin-top: 80px;
             color: rgba(255, 255, 255, 0.4);
             position: relative;
             z-index: 1;
-            font-size: 13px;
         }
         
         /* Чат виджет */
@@ -475,12 +556,7 @@ BASE_TEMPLATE = '''
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 5px 25px rgba(168, 85, 247, 0.5);
-            transition: all 0.3s;
-        }
-        
-        .chat-button:hover {
-            transform: scale(1.08);
+            box-shadow: 0 5px 25px rgba(168,85,247,0.5);
         }
         
         .chat-window {
@@ -492,11 +568,10 @@ BASE_TEMPLATE = '''
             background: rgba(15, 12, 41, 0.98);
             backdrop-filter: blur(20px);
             border-radius: 28px;
-            border: 1px solid rgba(168, 85, 247, 0.35);
+            border: 1px solid rgba(168,85,247,0.35);
             display: none;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
         }
         
         .chat-window.open {
@@ -505,11 +580,10 @@ BASE_TEMPLATE = '''
         
         .chat-header {
             padding: 18px;
-            background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(232, 121, 249, 0.1));
-            border-bottom: 1px solid rgba(168, 85, 247, 0.3);
+            background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(232,121,249,0.1));
+            border-bottom: 1px solid rgba(168,85,247,0.3);
             display: flex;
             justify-content: space-between;
-            align-items: center;
         }
         
         .chat-messages {
@@ -523,25 +597,22 @@ BASE_TEMPLATE = '''
             padding: 10px 14px;
             border-radius: 18px;
             max-width: 85%;
-            word-wrap: break-word;
         }
         
         .chat-message.user {
             background: linear-gradient(135deg, #a855f7, #e879f9);
             margin-left: auto;
-            border-bottom-right-radius: 4px;
         }
         
         .chat-message.support {
             background: rgba(255, 255, 255, 0.1);
             margin-right: auto;
-            border-bottom-left-radius: 4px;
         }
         
         .chat-input {
             display: flex;
             padding: 16px;
-            border-top: 1px solid rgba(168, 85, 247, 0.25);
+            border-top: 1px solid rgba(168,85,247,0.25);
             gap: 10px;
         }
         
@@ -549,10 +620,9 @@ BASE_TEMPLATE = '''
             flex: 1;
             padding: 12px;
             background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(168, 85, 247, 0.3);
+            border: 1px solid rgba(168,85,247,0.3);
             border-radius: 25px;
             color: white;
-            font-size: 14px;
         }
         
         .chat-input button {
@@ -569,50 +639,47 @@ BASE_TEMPLATE = '''
             border-radius: 20px;
             padding: 4px 12px;
             font-size: 12px;
-            font-weight: 600;
-        }
-        
-        @media (max-width: 1024px) {
-            .features-grid { grid-template-columns: repeat(2, 1fr); }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
         
         @media (max-width: 768px) {
-            .hero h1 { font-size: 40px; letter-spacing: 1px; }
-            .hero { padding: 110px 16px 50px; }
-            .nav-links { display: none; }
-            .catalog-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 40px; }
             .features-grid { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: 1fr; }
+            .catalog-grid { grid-template-columns: 1fr; }
             .chat-window { width: 300px; height: 450px; right: -10px; }
+            .sun { width: 50px; height: 50px; top: 15px; right: 15px; }
         }
         
-        /* Стили для админки */
         select, option {
             background: #1e1b4b;
             color: white;
         }
-        
-        input[type="file"] {
-            color: rgba(255,255,255,0.7);
-        }
-        
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #a855f7;
-            border-radius: 10px;
-        }
     </style>
 </head>
 <body>
+    <div class="sun"></div>
+    
+    <div class="menu-toggle" onclick="toggleMenu()">
+        <i class="fas fa-bars" style="font-size: 24px; color: white;"></i>
+    </div>
+    
+    <div class="side-menu" id="sideMenu">
+        <div class="close-menu" onclick="toggleMenu()">✕</div>
+        <a href="/"><i class="fas fa-home"></i> Главная</a>
+        <a href="/catalog"><i class="fas fa-store"></i> Каталог UC</a>
+        <a href="/check"><i class="fas fa-search"></i> Проверить заказ</a>
+        <a href="/support"><i class="fas fa-headset"></i> Поддержка</a>
+        <hr style="margin: 10px 0; border-color: rgba(168,85,247,0.3);">
+        <a href="/admin"><i class="fas fa-crown"></i> Админ-панель</a>
+    </div>
+    
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
+        </div>
+    </nav>
 '''
 
 BASE_FOOTER = '''
@@ -627,7 +694,7 @@ BASE_FOOTER = '''
             </div>
             <div class="chat-messages" id="chatMessages">
                 <div class="chat-message support">
-                    <i class="fas fa-robot"></i> Привет! Я помощник DiSK Delovoi UC. Напишите ваш вопрос, и мы ответим в ближайшее время!
+                    <i class="fas fa-robot"></i> Привет! Я помощник. Напишите ваш вопрос!
                 </div>
             </div>
             <div class="chat-input">
@@ -641,24 +708,47 @@ BASE_FOOTER = '''
     
     <div class="footer">
         <p>© 2024 DiSK Delovoi UC. Все права защищены.</p>
-        <p style="margin-top: 6px;">⚡ Киберпространство ждёт тебя | UC для PUBG Mobile</p>
+        <p>⚡ Киберпространство ждёт тебя | UC для PUBG Mobile</p>
     </div>
     
     <script>
-        // Создание анимированных элементов фона
-        const items = ['U', 'C', 'UC', '60', '120', '180', '325', '660', '1320', '1800', '▲', '●', '◆', '★', 'UC'];
+        // Создание летающих элементов
+        const ucLetters = ['U', 'C', 'UC', '60', '120', '180', '325', '660', '1320', '1800', '3850', '8100', '▲', '●', '◆', '★'];
         
-        for (let i = 0; i < 45; i++) {
+        for (let i = 0; i < 50; i++) {
             const el = document.createElement('div');
-            const randomItem = items[Math.floor(Math.random() * items.length)];
-            el.className = 'floating-item';
-            el.innerHTML = randomItem;
+            const item = ucLetters[Math.floor(Math.random() * ucLetters.length)];
+            const isUC = item === 'U' || item === 'C' || item === 'UC';
+            
+            if (isUC) {
+                el.className = 'floating-uc';
+                el.innerHTML = item;
+                el.style.fontSize = (Math.random() * 40 + 30) + 'px';
+                el.style.color = `rgba(168, 85, 247, ${Math.random() * 0.3 + 0.15})`;
+            } else if (item === '▲' || item === '●' || item === '◆' || item === '★') {
+                el.className = 'floating-shape';
+                el.innerHTML = item;
+                el.style.fontSize = (Math.random() * 30 + 20) + 'px';
+                el.style.color = `rgba(232, 121, 249, ${Math.random() * 0.3 + 0.15})`;
+            } else {
+                el.className = 'floating-number';
+                el.innerHTML = item + ' UC';
+                el.style.fontSize = (Math.random() * 25 + 18) + 'px';
+                el.style.color = `rgba(251, 191, 36, ${Math.random() * 0.3 + 0.15})`;
+            }
+            
             el.style.left = Math.random() * 100 + '%';
-            el.style.fontSize = (Math.random() * 35 + 20) + 'px';
-            el.style.animationDelay = Math.random() * 10 + 's';
-            el.style.animationDuration = (Math.random() * 10 + 7) + 's';
-            el.style.color = randomItem === 'U' || randomItem === 'C' || randomItem === 'UC' ? '#c084fc' : '#e879f9';
+            el.style.animationDelay = Math.random() * 12 + 's';
+            el.style.animationDuration = (Math.random() * 12 + 8) + 's';
             document.getElementById('animatedBg').appendChild(el);
+        }
+        
+        // Меню
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('overlay');
+            menu.classList.toggle('open');
+            overlay.classList.toggle('active');
         }
         
         // Чат
@@ -686,7 +776,7 @@ BASE_FOOTER = '''
             
             const supportMsg = document.createElement('div');
             supportMsg.className = 'chat-message support';
-            supportMsg.innerHTML = '<i class="fas fa-robot"></i> Спасибо! Мы ответим вам в ближайшее время.';
+            supportMsg.innerHTML = '<i class="fas fa-robot"></i> Спасибо! Мы ответим вам.';
             messagesDiv.appendChild(supportMsg);
             
             input.value = '';
@@ -698,56 +788,33 @@ BASE_FOOTER = '''
             div.textContent = text;
             return div.innerHTML;
         }
-        
-        // Авто-обновление flash сообщений
-        setTimeout(() => {
-            const flash = document.querySelector('.flash-message');
-            if (flash) setTimeout(() => flash.style.display = 'none', 5000);
-        }, 100);
     </script>
     <script src="https://kit.fontawesome.com/a2b8d7c8c1.js" crossorigin="anonymous"></script>
 </body>
 </html>
 '''
 
-# ==================== СТРАНИЦЫ ====================
+# ==================== МАРШРУТЫ ====================
 @app.route('/')
 def index():
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/"><i class="fas fa-home"></i> Главная</a>
-                <a href="/catalog"><i class="fas fa-store"></i> Каталог</a>
-                <a href="/check"><i class="fas fa-search"></i> Проверить заказ</a>
-                <a href="/support"><i class="fas fa-headset"></i> Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = '''
     <div class="hero">
         <h1><i class="fas fa-gem"></i> DiSK Delovoi UC</h1>
         <p>Безопасная покупка UC для PUBG Mobile в киберпространстве</p>
     </div>
-    
     <div class="container">
         <div class="features-grid">
-            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-shield-alt"></i></div><h3>100% Безопасность</h3><p>Гарантия получения UC</p></div>
-            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h3>Мгновенная доставка</h3><p>UC приходят сразу</p></div>
-            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-tag"></i></div><h3>Лучшие цены</h3><p>Низкие цены на рынке</p></div>
-            <div class="glass-card feature-card"><div class="feature-icon"><i class="fas fa-clock"></i></div><h3>Поддержка 24/7</h3><p>Поможем в любой ситуации</p></div>
+            <div class="glass-card"><div class="feature-icon"><i class="fas fa-shield-alt"></i></div><h3>100% Безопасность</h3><p>Гарантия получения UC</p></div>
+            <div class="glass-card"><div class="feature-icon"><i class="fas fa-bolt"></i></div><h3>Мгновенная доставка</h3><p>UC приходят сразу</p></div>
+            <div class="glass-card"><div class="feature-icon"><i class="fas fa-tag"></i></div><h3>Лучшие цены</h3><p>Низкие цены на рынке</p></div>
+            <div class="glass-card"><div class="feature-icon"><i class="fas fa-clock"></i></div><h3>Поддержка 24/7</h3><p>Поможем в любой ситуации</p></div>
         </div>
-        
         <div style="text-align: center; margin-bottom: 60px;">
             <a href="/catalog" class="btn"><i class="fas fa-rocket"></i> Войти в каталог UC</a>
         </div>
-        
         <div class="glass-card" style="padding: 40px; text-align: center;">
-            <h3 style="margin-bottom: 20px;"><i class="fas fa-search"></i> Проверить статус заказа</h3>
-            <form method="post" action="/check-order" style="max-width: 400px; margin: 0 auto;">
+            <h3><i class="fas fa-search"></i> Проверить статус заказа</h3>
+            <form method="post" action="/check-order" style="max-width: 400px; margin: 20px auto 0;">
                 <div class="form-group">
                     <input type="text" name="order_num" placeholder="Введите номер заказа" required>
                 </div>
@@ -756,8 +823,7 @@ def index():
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/catalog')
 def catalog():
@@ -771,33 +837,16 @@ def catalog():
         </div>
         '''
     
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/"><i class="fas fa-home"></i> Главная</a>
-                <a href="/catalog"><i class="fas fa-store"></i> Каталог</a>
-                <a href="/check"><i class="fas fa-search"></i> Проверить заказ</a>
-                <a href="/support"><i class="fas fa-headset"></i> Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = f'''
     <div class="container">
         <div class="hero" style="padding-top: 110px;">
             <h1><i class="fas fa-store"></i> Каталог UC</h1>
-            <p>Выберите нужное количество UC для вашего аккаунта</p>
+            <p>Выберите нужное количество UC</p>
         </div>
-        <div class="catalog-grid">
-            {items}
-        </div>
+        <div class="catalog-grid">{items}</div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/order/<int:amount>', methods=['GET', 'POST'])
 def order(amount):
@@ -827,21 +876,8 @@ def order(amount):
         conn.commit()
         conn.close()
         
+        # Перенаправляем на страницу оплаты
         return redirect(url_for('payment', order_num=order_num))
-    
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-                <a href="/support">Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
     
     content = f'''
     <div class="container">
@@ -875,8 +911,7 @@ def order(amount):
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/payment/<order_num>')
 def payment(order_num):
@@ -892,20 +927,6 @@ def payment(order_num):
         flash('Заказ не найден!')
         return redirect(url_for('catalog'))
     
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-                <a href="/support">Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = f'''
     <div class="container">
         <div class="hero" style="padding-top: 110px;">
@@ -916,20 +937,20 @@ def payment(order_num):
             <div style="text-align: center; margin-bottom: 30px;">
                 <div class="product-amount">{order['uc_amount']} UC</div>
                 <div class="product-price">{format_price(order['uc_price'])} ₽</div>
-                <p style="margin-top: 10px;"><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
+                <p><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
             </div>
             
             <div class="payment-info">
-                <h3 style="margin-bottom: 16px;"><i class="fas fa-credit-card"></i> Реквизиты для оплаты</h3>
-                <p><strong><i class="fas fa-credit-card"></i> Карта:</strong> {payment['card_number'] or 'Не указана'}</p>
-                <p><strong><i class="fas fa-wallet"></i> Кошелек:</strong> {payment['wallet_number'] or 'Не указан'}</p>
-                <p><strong><i class="fas fa-info-circle"></i> Инструкция:</strong> {payment['instruction']}</p>
+                <h3><i class="fas fa-credit-card"></i> Реквизиты для оплаты</h3>
+                <p><strong>Карта:</strong> {payment['card_number'] or 'Не указана'}</p>
+                <p><strong>Кошелек:</strong> {payment['wallet_number'] or 'Не указан'}</p>
+                <p><strong>Инструкция:</strong> {payment['instruction']}</p>
                 <p style="margin-top: 16px; color: #f472b6;"><i class="fas fa-exclamation-triangle"></i> Важно: Переведите точную сумму {format_price(order['uc_price'])} ₽</p>
             </div>
             
             <form method="post" action="/payment-proof/{order_num}" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label><i class="fas fa-image"></i> Прикрепите чек (скриншот или фото)</label>
+                    <label><i class="fas fa-image"></i> Прикрепите чек</label>
                     <input type="file" name="proof_file" accept="image/*">
                 </div>
                 <div class="form-group">
@@ -941,8 +962,7 @@ def payment(order_num):
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/payment-proof/<order_num>', methods=['POST'])
 def payment_proof(order_num):
@@ -970,22 +990,7 @@ def order_status(order_num):
         flash('Заказ не найден!')
         return redirect(url_for('catalog'))
     
-    status_text = "🆕 Новый" if order['status'] == 'new' else "⏳ Ожидает подтверждения" if order['status'] == 'waiting_confirm' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
-    status_color = "#c084fc" if order['status'] == 'new' else "#f472b6" if order['status'] == 'waiting_confirm' else "#10b981" if order['status'] == 'completed' else "#ef4444"
-    
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-                <a href="/support">Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
+    status_text = "🆕 Новый" if order['status'] == 'new' else "⏳ Ожидает" if order['status'] == 'waiting_confirm' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
     
     content = f'''
     <div class="container">
@@ -996,17 +1001,16 @@ def order_status(order_num):
         <div class="glass-card" style="padding: 40px; max-width: 600px; margin: 0 auto; text-align: center;">
             <div class="product-amount">{order['uc_amount']} UC</div>
             <div class="product-price">{format_price(order['uc_price'])} ₽</div>
-            <p style="margin-top: 16px;"><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
-            <p style="margin-top: 8px;"><i class="fas fa-calendar"></i> {order['created_at'][:19]}</p>
+            <p><i class="fas fa-gamepad"></i> ID: {order['game_id']}</p>
+            <p><i class="fas fa-calendar"></i> {order['created_at'][:19]}</p>
             <div style="margin: 25px 0; padding: 15px; border-radius: 20px; background: rgba(168,85,247,0.1);">
-                <strong>Статус:</strong> <span style="color: {status_color};">{status_text}</span>
+                <strong>Статус:</strong> {status_text}
             </div>
             <a href="/catalog" class="btn"><i class="fas fa-shopping-cart"></i> Продолжить покупки</a>
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/check-order', methods=['POST'])
 def check_order():
@@ -1015,24 +1019,10 @@ def check_order():
 
 @app.route('/check')
 def check_page():
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/support">Поддержка</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = '''
     <div class="container">
         <div class="hero" style="padding-top: 110px;">
             <h1><i class="fas fa-search"></i> Проверка заказа</h1>
-            <p>Введите номер заказа для проверки статуса</p>
         </div>
         <div class="form-container">
             <form method="post" action="/check-order">
@@ -1044,42 +1034,27 @@ def check_page():
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/support')
 def support_page():
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-                <a href="/check">Проверить заказ</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = '''
     <div class="container">
         <div class="hero" style="padding-top: 110px;">
             <h1><i class="fas fa-headset"></i> Служба поддержки</h1>
-            <p>Напишите нам, и мы ответим в ближайшее время</p>
         </div>
         <div class="form-container">
             <form method="post" action="/support/send-form">
                 <div class="form-group">
-                    <label><i class="fas fa-user"></i> Ваше имя</label>
+                    <label>Ваше имя</label>
                     <input type="text" name="user_name" required>
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-envelope"></i> Email</label>
+                    <label>Email</label>
                     <input type="email" name="user_email" required>
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-comment"></i> Сообщение</label>
+                    <label>Сообщение</label>
                     <textarea name="message" rows="5" required></textarea>
                 </div>
                 <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-paper-plane"></i> Отправить</button>
@@ -1087,8 +1062,7 @@ def support_page():
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/support/send', methods=['POST'])
 def send_support_message():
@@ -1115,7 +1089,7 @@ def send_support_form():
                       (user_name, user_email, message))
         conn.commit()
         conn.close()
-        flash('Сообщение отправлено! Мы ответим вам на email.')
+        flash('Сообщение отправлено! Мы ответим вам.')
     else:
         flash('Пожалуйста, заполните все поля!')
     
@@ -1137,32 +1111,20 @@ def admin_login():
         else:
             error = 'Неверный логин или пароль!'
     
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/catalog">Каталог</a>
-            </div>
-        </div>
-    </nav>
-    '''
-    
     content = f'''
     <div class="container">
         <div class="hero" style="padding-top: 120px;">
             <h1><i class="fas fa-crown"></i> Вход в админ-панель</h1>
         </div>
         <div class="form-container">
-            {f'<div class="flash-message"><i class="fas fa-exclamation-triangle"></i> {error}</div>' if error else ''}
+            {f'<div class="flash-message">{error}</div>' if error else ''}
             <form method="post">
                 <div class="form-group">
-                    <label><i class="fas fa-user"></i> Логин</label>
+                    <label>Логин</label>
                     <input type="text" name="username" required>
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-lock"></i> Пароль</label>
+                    <label>Пароль</label>
                     <input type="password" name="password" required>
                 </div>
                 <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-sign-in-alt"></i> Войти</button>
@@ -1170,8 +1132,7 @@ def admin_login():
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -1186,22 +1147,16 @@ def admin_dashboard():
     
     cursor.execute("SELECT COUNT(*) FROM orders")
     total_orders = cursor.fetchone()[0]
-    
     cursor.execute("SELECT COUNT(*) FROM orders WHERE status='new'")
     new_orders = cursor.fetchone()[0]
-    
     cursor.execute("SELECT COUNT(*) FROM orders WHERE status='completed'")
     completed_orders = cursor.fetchone()[0]
-    
     cursor.execute("SELECT SUM(uc_price) FROM orders WHERE status='completed'")
     total_income = cursor.fetchone()[0] or 0
-    
     cursor.execute("SELECT * FROM orders ORDER BY created_at DESC")
     orders = cursor.fetchall()
-    
     cursor.execute("SELECT COUNT(*) FROM support_messages WHERE status='new'")
     new_messages = cursor.fetchone()[0]
-    
     cursor.execute("SELECT * FROM support_messages ORDER BY created_at DESC")
     support_messages = cursor.fetchall()
     conn.close()
@@ -1217,8 +1172,8 @@ def admin_dashboard():
             <td>{format_price(order['uc_price'])} ₽</td>
             <td>{status_class}</td>
             <td>
-                <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <select name="status" style="padding: 6px 12px; border-radius: 12px; background: #1e1b4b;">
+                <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px;">
+                    <select name="status" style="padding: 6px 12px; border-radius: 12px;">
                         <option value="new">Новый</option>
                         <option value="waiting_confirm">Ожидает</option>
                         <option value="completed">Завершен</option>
@@ -1237,28 +1192,15 @@ def admin_dashboard():
             <td>{msg['created_at'][:16]}</td>
             <td>{msg['user_name']}</td>
             <td>{msg['user_email']}</td>
-            <td style="max-width: 300px;">{msg['message'][:80]}...</td>
+            <td>{msg['message'][:80]}...</td>
             <td>{"🆕 Новое" if msg['status'] == 'new' else "✅ Прочитано"}</td>
         </tr>
         '''
-    
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/">Главная</a>
-                <a href="/admin/logout"><i class="fas fa-sign-out-alt"></i> Выйти</a>
-            </div>
-        </div>
-    </nav>
-    '''
     
     content = f'''
     <div class="container">
         <div class="hero" style="padding-top: 110px;">
             <h1><i class="fas fa-crown"></i> Админ-панель</h1>
-            <p>Управление заказами, реквизитами и сообщениями</p>
         </div>
         
         <div class="stats-grid">
@@ -1275,44 +1217,33 @@ def admin_dashboard():
         </div>
         
         <div class="orders-table">
-            <h3 style="margin-bottom: 20px;"><i class="fas fa-box"></i> Список заказов</h3>
+            <h3><i class="fas fa-box"></i> Список заказов</h3>
             <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr>
-                    </thead>
-                    <tbody>{orders_html}</tbody>
-                </table>
+                <table><thead><tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead>
+                <tbody>{orders_html}</tbody></table>
             </div>
         </div>
         
         <div class="orders-table" style="margin-top: 30px;">
-            <h3 style="margin-bottom: 20px;"><i class="fas fa-comments"></i> Сообщения поддержки</h3>
+            <h3><i class="fas fa-comments"></i> Сообщения поддержки</h3>
             <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr><th>Дата</th><th>Имя</th><th>Email</th><th>Сообщение</th><th>Статус</th></tr>
-                    </thead>
-                    <tbody>{messages_html}</tbody>
-                </table>
+                <table><thead><tr><th>Дата</th><th>Имя</th><th>Email</th><th>Сообщение</th><th>Статус</th></tr></thead>
+                <tbody>{messages_html}</tbody></table>
             </div>
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/admin/order/<int:order_id>', methods=['POST'])
 @admin_required
 def admin_update_order(order_id):
     new_status = request.form.get('status')
-    
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE orders SET status=? WHERE id=?", (new_status, order_id))
     conn.commit()
     conn.close()
-    
     flash('Статус заказа обновлен!')
     return redirect(url_for('admin_dashboard'))
 
@@ -1326,7 +1257,6 @@ def admin_payments():
         card_number = request.form.get('card_number')
         wallet_number = request.form.get('wallet_number')
         instruction = request.form.get('instruction')
-        
         cursor.execute("UPDATE payments SET card_number=?, wallet_number=?, instruction=?", 
                       (card_number, wallet_number, instruction))
         conn.commit()
@@ -1336,19 +1266,7 @@ def admin_payments():
     payment = cursor.fetchone()
     conn.close()
     
-    msg = '<div class="flash-message"><i class="fas fa-check-circle"></i> Реквизиты обновлены!</div>' if request.method == 'POST' else ''
-    
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/admin">Админ-панель</a>
-                <a href="/admin/logout">Выйти</a>
-            </div>
-        </div>
-    </nav>
-    '''
+    msg = '<div class="flash-message">Реквизиты обновлены!</div>' if request.method == 'POST' else ''
     
     content = f'''
     <div class="container">
@@ -1359,25 +1277,24 @@ def admin_payments():
             {msg}
             <form method="post">
                 <div class="form-group">
-                    <label><i class="fas fa-credit-card"></i> Номер карты</label>
+                    <label>Номер карты</label>
                     <input type="text" name="card_number" value="{payment['card_number'] or ''}" placeholder="1234 5678 9012 3456">
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-wallet"></i> Номер кошелька</label>
+                    <label>Номер кошелька</label>
                     <input type="text" name="wallet_number" value="{payment['wallet_number'] or ''}" placeholder="+7 999 123-45-67">
                 </div>
                 <div class="form-group">
-                    <label><i class="fas fa-info-circle"></i> Инструкция по оплате</label>
+                    <label>Инструкция по оплате</label>
                     <textarea name="instruction" rows="4">{payment['instruction'] or ''}</textarea>
                 </div>
                 <button type="submit" class="btn" style="width: 100%;"><i class="fas fa-save"></i> Сохранить</button>
             </form>
-            <div style="text-align: center; margin-top: 20px;"><a href="/admin" style="color: rgba(255,255,255,0.7);">← Назад</a></div>
+            <div style="text-align: center; margin-top: 20px;"><a href="/admin">← Назад</a></div>
         </div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
 @app.route('/admin/messages')
 @admin_required
@@ -1395,22 +1312,10 @@ def admin_messages():
         messages_html += f'''
         <div class="glass-card" style="margin-bottom: 16px; padding: 20px;">
             <p><strong><i class="fas fa-calendar"></i> {msg['created_at'][:19]}</strong></p>
-            <p><strong><i class="fas fa-user"></i> {msg['user_name']}</strong> (<i class="fas fa-envelope"></i> {msg['user_email']})</p>
-            <p style="margin-top: 10px;"><i class="fas fa-comment"></i> {msg['message']}</p>
+            <p><strong><i class="fas fa-user"></i> {msg['user_name']}</strong> ({msg['user_email']})</p>
+            <p><i class="fas fa-comment"></i> {msg['message']}</p>
         </div>
         '''
-    
-    nav = '''
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo"><i class="fas fa-dragon"></i> DiSK Delovoi UC</div>
-            <div class="nav-links">
-                <a href="/admin">Админ-панель</a>
-                <a href="/admin/logout">Выйти</a>
-            </div>
-        </div>
-    </nav>
-    '''
     
     content = f'''
     <div class="container">
@@ -1418,15 +1323,11 @@ def admin_messages():
             <h1><i class="fas fa-envelope"></i> Сообщения поддержки</h1>
         </div>
         {messages_html if messages_html else '<div class="glass-card" style="padding: 40px; text-align: center;">📭 Нет сообщений</div>'}
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="/admin" class="btn">← Назад</a>
-        </div>
+        <div style="text-align: center; margin-top: 30px;"><a href="/admin" class="btn">← Назад</a></div>
     </div>
     '''
-    
-    return BASE_TEMPLATE + nav + content + BASE_FOOTER
+    return BASE_TEMPLATE + content + BASE_FOOTER
 
-# ==================== ЗАПУСК ====================
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 5000))
