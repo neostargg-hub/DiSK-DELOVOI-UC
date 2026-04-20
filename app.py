@@ -10,7 +10,7 @@ from functools import wraps
 app = Flask(__name__)
 
 # СЕКРЕТНЫЙ КЛЮЧ - замените на свой!
-app.secret_key = os.environ.get('SECRET_KEY', 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2)
+app.secret_key = os.environ.get('SECRET_KEY', 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2')
 
 # ==================== КОНФИГУРАЦИЯ ====================
 SITE_NAME = "DiSK Delovoi UC"
