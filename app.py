@@ -4,15 +4,11 @@ import random
 import string
 import hashlib
 import os
-from datetime import datetime
 from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2'
 
-# СЕКРЕТНЫЙ КЛЮЧ - замените на свой!
-app.secret_key = os.environ.get('SECRET_KEY', 'd7f9a3e2b1c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2')
-
-# ==================== КОНФИГУРАЦИЯ ====================
 SITE_NAME = "DiSK Delovoi UC"
 
 # ==================== БАЗА ДАННЫХ ====================
@@ -58,7 +54,6 @@ def init_db():
     )
     ''')
     
-    # Добавляем админа по умолчанию
     cursor.execute("SELECT COUNT(*) FROM admin")
     if cursor.fetchone()[0] == 0:
         password_hash = hashlib.sha256('admin123'.encode()).hexdigest()
@@ -88,7 +83,6 @@ def format_price(price):
 def generate_order_num():
     return ''.join(random.choices(string.digits, k=12))
 
-# ==================== ДЕКОРАТОР АДМИНА ====================
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -97,551 +91,174 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# ==================== HTML ШАБЛОН ====================
-HTML_TEMPLATE = """
+# ==================== ГЛАВНАЯ СТРАНИЦА ====================
+@app.route('/')
+def index():
+    return f'''
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ site_name }} - Покупка UC для PUBG Mobile</title>
+    <title>{SITE_NAME} - Покупка UC для PUBG Mobile</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
             font-family: 'Inter', sans-serif;
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             color: #fff;
-        }
-        .glass {
-            background: rgba(255, 255, 255, 0.07);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 32px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.3s ease;
-        }
-        .glass-card:hover {
-            transform: translateY(-5px);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-        .navbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            padding: 16px 24px;
-            background: rgba(26, 26, 46, 0.8);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .nav-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logo {
-            font-size: 24px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .nav-links {
-            display: flex;
-            gap: 32px;
-        }
-        .nav-links a {
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-        .nav-links a:hover { color: #fff; }
-        .hero {
-            padding: 120px 24px 80px;
-            text-align: center;
-        }
-        .hero h1 {
-            font-size: 64px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff 0%, #a8b5e6 50%, #7c3aed 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 24px;
-        }
-        .hero p {
-            font-size: 20px;
-            color: rgba(255, 255, 255, 0.6);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 24px;
-            margin-bottom: 80px;
-        }
-        .feature-card {
-            padding: 32px 24px;
-            text-align: center;
-        }
-        .feature-icon { font-size: 48px; margin-bottom: 16px; }
-        .feature-card h3 { font-size: 20px; margin-bottom: 8px; }
-        .feature-card p { font-size: 14px; color: rgba(255, 255, 255, 0.5); }
-        .section-title {
-            font-size: 36px;
-            font-weight: 600;
-            margin-bottom: 40px;
-            text-align: center;
-        }
-        .catalog-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 24px;
-            margin-bottom: 80px;
-        }
-        .product-card {
-            padding: 28px;
-            text-align: center;
-        }
-        .product-amount {
-            font-size: 32px;
-            font-weight: 700;
-            color: #a8b5e6;
-            margin-bottom: 12px;
-        }
-        .product-price {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 12px 32px;
-            background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%);
-            border: none;
-            border-radius: 40px;
-            color: white;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
-        }
-        .form-container {
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 40px;
-        }
-        .form-group {
-            margin-bottom: 24px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.7);
-        }
-        .form-group input, .form-group textarea {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            color: white;
-            font-size: 16px;
-        }
-        .form-group input:focus, .form-group textarea:focus {
-            outline: none;
-            border-color: #7c3aed;
-        }
-        .flash-message {
-            padding: 16px 24px;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            background: rgba(124, 58, 237, 0.2);
-            border: 1px solid rgba(124, 58, 237, 0.3);
-        }
-        .footer {
-            text-align: center;
-            padding: 40px 24px;
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            margin-top: 80px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 40px; }
-            .features-grid { grid-template-columns: repeat(2, 1fr); }
-            .nav-links { display: none; }
-        }
+        }}
+        .navbar {{
+            position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+            padding: 16px 24px; background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .nav-links {{ display: flex; gap: 32px; }}
+        .nav-links a {{ color: rgba(255, 255, 255, 0.7); text-decoration: none; transition: color 0.3s; }}
+        .nav-links a:hover {{ color: #fff; }}
+        .hero {{ padding: 120px 24px 80px; text-align: center; }}
+        .hero h1 {{ font-size: 64px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 50%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 24px; }}
+        .hero p {{ font-size: 20px; color: rgba(255, 255, 255, 0.6); max-width: 600px; margin: 0 auto; }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 0 24px; }}
+        .features-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 80px; }}
+        .glass-card {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 32px 24px; text-align: center; transition: all 0.3s ease; }}
+        .glass-card:hover {{ transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.2); }}
+        .feature-icon {{ font-size: 48px; margin-bottom: 16px; }}
+        .feature-card h3 {{ font-size: 20px; margin-bottom: 8px; }}
+        .feature-card p {{ font-size: 14px; color: rgba(255, 255, 255, 0.5); }}
+        .btn {{ display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; transition: all 0.3s; }}
+        .btn:hover {{ transform: scale(1.05); box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3); }}
+        .form-container {{ max-width: 500px; margin: 0 auto; padding: 40px; background: rgba(255, 255, 255, 0.05); border-radius: 32px; }}
+        .form-group {{ margin-bottom: 24px; }}
+        .form-group label {{ display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }}
+        .form-group input, .form-group textarea {{ width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }}
+        .form-group input:focus {{ outline: none; border-color: #7c3aed; }}
+        .flash-message {{ padding: 16px 24px; border-radius: 16px; margin-bottom: 24px; background: rgba(124, 58, 237, 0.2); border: 1px solid rgba(124, 58, 237, 0.3); }}
+        .catalog-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; margin-bottom: 80px; }}
+        .product-amount {{ font-size: 32px; font-weight: 700; color: #a8b5e6; margin-bottom: 12px; }}
+        .product-price {{ font-size: 28px; font-weight: 600; margin-bottom: 20px; }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+        @media (max-width: 768px) {{ .hero h1 {{ font-size: 40px; }} .features-grid {{ grid-template-columns: repeat(2, 1fr); }} .nav-links {{ display: none; }} }}
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="nav-container">
-            <div class="logo">{{ site_name }}</div>
+            <div class="logo">{SITE_NAME}</div>
             <div class="nav-links">
                 <a href="/">Главная</a>
                 <a href="/catalog">Каталог</a>
                 <a href="/check">Проверить заказ</a>
-                {% if session.admin_logged_in %}
-                <a href="/admin">Админ-панель</a>
-                {% endif %}
+                {"<a href='/admin'>Админ-панель</a>" if session.get('admin_logged_in') else ""}
             </div>
         </div>
     </nav>
-    {% block content %}{% endblock %}
+    
+    <div class="hero">
+        <h1>🛡️ {SITE_NAME}</h1>
+        <p>Безопасная покупка UC для PUBG Mobile по лучшим ценам</p>
+    </div>
+    
+    <div class="container">
+        <div class="features-grid">
+            <div class="glass-card"><div class="feature-icon">✅</div><h3>100% Безопасность</h3><p>Гарантия получения UC</p></div>
+            <div class="glass-card"><div class="feature-icon">⚡</div><h3>Мгновенная доставка</h3><p>UC приходят сразу</p></div>
+            <div class="glass-card"><div class="feature-icon">💰</div><h3>Лучшие цены</h3><p>Низкие цены на рынке</p></div>
+            <div class="glass-card"><div class="feature-icon">💬</div><h3>Поддержка 24/7</h3><p>Поможем в любой ситуации</p></div>
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 60px;">
+            <a href="/catalog" class="btn">🛒 Перейти в каталог</a>
+        </div>
+        
+        <div class="glass-card" style="padding: 40px; text-align: center;">
+            <h3 style="margin-bottom: 20px;">Проверить статус заказа</h3>
+            <form method="post" action="/check-order" style="max-width: 400px; margin: 0 auto;">
+                <div class="form-group">
+                    <input type="text" name="order_num" placeholder="Введите номер заказа" required>
+                </div>
+                <button type="submit" class="btn">Проверить</button>
+            </form>
+        </div>
+    </div>
+    
     <div class="footer">
-        <p>© 2024 {{ site_name }}. Все права защищены.</p>
+        <p>© 2024 {SITE_NAME}. Все права защищены.</p>
     </div>
 </body>
 </html>
-"""
+    '''
 
-# ==================== СТРАНИЦЫ ====================
-INDEX_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="hero">
-    <h1>🛡️ {{ site_name }}</h1>
-    <p>Безопасная покупка UC для PUBG Mobile по лучшим ценам</p>
-</div>
-<div class="container">
-    <div class="features-grid">
-        <div class="feature-card glass-card">
-            <div class="feature-icon">✅</div>
-            <h3>100% Безопасность</h3>
-            <p>Гарантия получения UC</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">⚡</div>
-            <h3>Мгновенная доставка</h3>
-            <p>UC приходят сразу</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">💰</div>
-            <h3>Лучшие цены</h3>
-            <p>Низкие цены на рынке</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">💬</div>
-            <h3>Поддержка 24/7</h3>
-            <p>Поможем в любой ситуации</p>
-        </div>
-    </div>
-    <div style="text-align: center; margin-bottom: 60px;">
-        <a href="/catalog" class="btn">🛒 Перейти в каталог</a>
-    </div>
-    <div class="glass-card" style="padding: 40px; text-align: center;">
-        <h3 style="margin-bottom: 20px;">Проверить статус заказа</h3>
-        <form method="post" action="/check-order" style="max-width: 400px; margin: 0 auto;">
-            <div class="form-group">
-                <input type="text" name="order_num" placeholder="Введите номер заказа" required>
-            </div>
-            <button type="submit" class="btn">Проверить</button>
-        </form>
-    </div>
-</div>
-{% endblock %}
-"""
-
-CATALOG_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>🛒 Каталог UC</h1>
-        <p>Выберите нужное количество UC</p>
-    </div>
-    <div class="catalog-grid">
-        {% for amount, price in uc_prices.items() %}
-        <div class="product-card glass-card">
-            <div class="product-amount">{{ amount }} UC</div>
-            <div class="product-price">{{ format_price(price) }} ₽</div>
-            <a href="/order/{{ amount }}" class="btn">Купить</a>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endblock %}
-"""
-
-ORDER_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>📝 Оформление заказа</h1>
-    </div>
-    <div class="glass-card form-container">
-        <div style="text-align: center; margin-bottom: 30px;">
-            <div class="product-amount">{{ amount }} UC</div>
-            <div class="product-price">{{ format_price(price) }} ₽</div>
-        </div>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% for category, message in messages %}
-                <div class="flash-message">{{ message }}</div>
-            {% endfor %}
-        {% endwith %}
-        <form method="post">
-            <div class="form-group">
-                <label>Ваше имя *</label>
-                <input type="text" name="user_name" required placeholder="Иван Иванов">
-            </div>
-            <div class="form-group">
-                <label>Телефон *</label>
-                <input type="tel" name="user_phone" required placeholder="+7 999 123-45-67">
-            </div>
-            <div class="form-group">
-                <label>Email</label>
-                <input type="email" name="user_email" placeholder="ivan@example.com">
-            </div>
-            <div class="form-group">
-                <label>PUBG ID *</label>
-                <input type="text" name="game_id" required placeholder="Введите ваш игровой ID">
-            </div>
-            <button type="submit" class="btn" style="width: 100%;">✅ Перейти к оплате</button>
-        </form>
-    </div>
-</div>
-{% endblock %}
-"""
-
-PAYMENT_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>💳 Оплата заказа</h1>
-        <p>Заказ #{{ order_num }}</p>
-    </div>
-    <div class="glass-card form-container">
-        <div style="text-align: center; margin-bottom: 30px;">
-            <div class="product-amount">{{ amount }} UC</div>
-            <div class="product-price">{{ format_price(price) }} ₽</div>
-            <p style="margin-top: 10px;">🎮 ID: {{ game_id }}</p>
-        </div>
-        <div class="glass-card" style="padding: 24px; margin-bottom: 30px; background: rgba(124,58,237,0.1);">
-            <h3 style="margin-bottom: 16px;">💳 Реквизиты для оплаты</h3>
-            <p><strong>Карта:</strong> {{ card or 'Не указана' }}</p>
-            <p><strong>Кошелек:</strong> {{ wallet or 'Не указан' }}</p>
-            <p><strong>Инструкция:</strong> {{ instruction }}</p>
-            <p style="margin-top: 16px; color: #f87171;">⚠️ Важно: Переведите точную сумму {{ format_price(price) }} ₽</p>
-        </div>
-        <form method="post" action="/payment-proof/{{ order_num }}" enctype="multipart/form-data">
-            <div class="form-group">
-                <label>📎 Прикрепите чек (скриншот или фото)</label>
-                <input type="file" name="proof_file" accept="image/*" style="padding: 10px;">
-            </div>
-            <div class="form-group">
-                <label>Или введите текст подтверждения</label>
-                <textarea name="proof_text" rows="3" placeholder="Номер транзакции, дата, сумма..."></textarea>
-            </div>
-            <button type="submit" class="btn" style="width: 100%;">📨 Отправить чек</button>
-        </form>
-    </div>
-</div>
-{% endblock %}
-"""
-
-STATUS_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>📋 Статус заказа</h1>
-        <p>Заказ #{{ order.order_num }}</p>
-    </div>
-    <div class="glass-card" style="padding: 40px; max-width: 800px; margin: 0 auto; text-align: center;">
-        <div class="product-amount">{{ order.uc_amount }} UC</div>
-        <div class="product-price">{{ format_price(order.uc_price) }} ₽</div>
-        <p style="margin-top: 16px;">🎮 ID: {{ order.game_id }}</p>
-        <p style="margin-top: 8px;">📅 {{ order.created_at[:19] }}</p>
-        <p style="margin-top: 16px;">
-            <strong>Статус:</strong>
-            {% if order.status == 'new' %}🆕 Новый
-            {% elif order.status == 'completed' %}✅ Завершен
-            {% else %}❌ Отменен{% endif %}
-        </p>
-    </div>
-</div>
-{% endblock %}
-"""
-
-ADMIN_LOGIN_PAGE = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>👑 Вход в админ-панель</h1>
-    </div>
-    <div class="glass-card form-container">
-        {% with messages = get_flashed_messages() %}
-            {% for message in messages %}
-                <div class="flash-message">{{ message }}</div>
-            {% endfor %}
-        {% endwith %}
-        <form method="post">
-            <div class="form-group">
-                <label>Логин</label>
-                <input type="text" name="username" required>
-            </div>
-            <div class="form-group">
-                <label>Пароль</label>
-                <input type="password" name="password" required>
-            </div>
-            <button type="submit" class="btn" style="width: 100%;">Войти</button>
-        </form>
-    </div>
-</div>
-{% endblock %}
-"""
-
-ADMIN_DASHBOARD = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>👑 Админ-панель</h1>
-        <p>Управление заказами и реквизитами</p>
-    </div>
-    <div class="features-grid">
-        <div class="feature-card glass-card">
-            <div class="feature-icon">📦</div>
-            <h3>{{ total_orders }}</h3>
-            <p>Всего заказов</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">🆕</div>
-            <h3>{{ new_orders }}</h3>
-            <p>Новых заказов</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">✅</div>
-            <h3>{{ completed_orders }}</h3>
-            <p>Завершено</p>
-        </div>
-        <div class="feature-card glass-card">
-            <div class="feature-icon">💰</div>
-            <h3>{{ format_price(total_income) }} ₽</h3>
-            <p>Оборот</p>
-        </div>
-    </div>
-    <div style="margin-bottom: 30px; display: flex; gap: 16px; justify-content: center;">
-        <a href="/admin/payments" class="btn">💳 Реквизиты</a>
-        <a href="/admin/logout" class="btn">🚪 Выйти</a>
-    </div>
-    <div class="glass-card" style="padding: 24px; overflow-x: auto;">
-        <h3 style="margin-bottom: 20px;">📋 Список заказов</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                    <th style="padding: 12px; text-align: left;">№</th>
-                    <th style="padding: 12px; text-align: left;">Покупатель</th>
-                    <th style="padding: 12px; text-align: left;">UC</th>
-                    <th style="padding: 12px; text-align: left;">Сумма</th>
-                    <th style="padding: 12px; text-align: left;">Статус</th>
-                    <th style="padding: 12px; text-align: left;">Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px;">{{ order.order_num }}</td>
-                    <td style="padding: 12px;">{{ order.user_name }}</td>
-                    <td style="padding: 12px;">{{ order.uc_amount }}</td>
-                    <td style="padding: 12px;">{{ format_price(order.uc_price) }} ₽</td>
-                    <td style="padding: 12px;">
-                        <span style="padding: 4px 12px; border-radius: 20px; background: {% if order.status == 'new' %}rgba(245,158,11,0.2){% elif order.status == 'completed' %}rgba(16,185,129,0.2){% else %}rgba(239,68,68,0.2){% endif %};">
-                            {% if order.status == 'new' %}🆕 Новый
-                            {% elif order.status == 'completed' %}✅ Завершен
-                            {% else %}❌ Отменен{% endif %}
-                        </span>
-                    </td>
-                    <td style="padding: 12px;">
-                        <form method="post" action="/admin/order/{{ order.id }}" style="display: flex; gap: 8px;">
-                            <select name="status" style="background: rgba(255,255,255,0.1); border: none; padding: 6px 12px; border-radius: 12px; color: white;">
-                                <option value="new">Новый</option>
-                                <option value="completed">Завершен</option>
-                                <option value="cancelled">Отменен</option>
-                            </select>
-                            <button type="submit" class="btn" style="padding: 6px 16px;">Обновить</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% endblock %}
-"""
-
-ADMIN_PAYMENTS = """
-{% extends "base.html" %}
-{% block content %}
-<div class="container">
-    <div class="hero" style="padding-top: 100px;">
-        <h1>💳 Настройка реквизитов</h1>
-    </div>
-    <div class="glass-card form-container">
-        {% with messages = get_flashed_messages() %}
-            {% for message in messages %}
-                <div class="flash-message">{{ message }}</div>
-            {% endfor %}
-        {% endwith %}
-        <form method="post">
-            <div class="form-group">
-                <label>Номер карты</label>
-                <input type="text" name="card_number" value="{{ card }}" placeholder="1234 5678 9012 3456">
-            </div>
-            <div class="form-group">
-                <label>Номер кошелька</label>
-                <input type="text" name="wallet_number" value="{{ wallet }}" placeholder="+7 999 123-45-67">
-            </div>
-            <div class="form-group">
-                <label>Инструкция по оплате</label>
-                <textarea name="instruction" rows="4">{{ instruction }}</textarea>
-            </div>
-            <button type="submit" class="btn" style="width: 100%;">💾 Сохранить</button>
-        </form>
-        <div style="margin-top: 30px; text-align: center;">
-            <a href="/admin" class="btn">← Назад</a>
-        </div>
-    </div>
-</div>
-{% endblock %}
-"""
-
-# ==================== МАРШРУТЫ ====================
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE + INDEX_PAGE, site_name=SITE_NAME)
-
+# ==================== КАТАЛОГ ====================
 @app.route('/catalog')
 def catalog():
-    return render_template_string(HTML_TEMPLATE + CATALOG_PAGE, 
-                                site_name=SITE_NAME, 
-                                uc_prices=UC_PRICES, 
-                                format_price=format_price)
+    items_html = ''
+    for amount, price in UC_PRICES.items():
+        items_html += f'''
+        <div class="glass-card" style="text-align: center;">
+            <div class="product-amount">{amount} UC</div>
+            <div class="product-price">{format_price(price)} ₽</div>
+            <a href="/order/{amount}" class="btn">Купить</a>
+        </div>
+        '''
+    
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каталог - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; z-index: 1000; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .nav-links {{ display: flex; gap: 32px; }}
+        .nav-links a {{ color: rgba(255, 255, 255, 0.7); text-decoration: none; }}
+        .nav-links a:hover {{ color: #fff; }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 120px 24px 80px; }}
+        .catalog-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }}
+        .glass-card {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 28px; transition: all 0.3s ease; }}
+        .glass-card:hover {{ transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.2); }}
+        .product-amount {{ font-size: 32px; font-weight: 700; color: #a8b5e6; margin-bottom: 12px; }}
+        .product-price {{ font-size: 28px; font-weight: 600; margin-bottom: 20px; }}
+        .btn {{ display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; transition: all 0.3s; }}
+        .btn:hover {{ transform: scale(1.05); }}
+        .hero h1 {{ font-size: 48px; text-align: center; margin-bottom: 40px; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+        @media (max-width: 768px) {{ .nav-links {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links">
+                <a href="/">Главная</a>
+                <a href="/catalog">Каталог</a>
+                <a href="/check">Проверить заказ</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="hero"><h1>🛒 Каталог UC</h1></div>
+        <div class="catalog-grid">{items_html}</div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
+# ==================== ОФОРМЛЕНИЕ ЗАКАЗА ====================
 @app.route('/order/<int:amount>', methods=['GET', 'POST'])
 def order(amount):
     if amount not in UC_PRICES:
@@ -656,12 +273,8 @@ def order(amount):
         game_id = request.form.get('game_id')
         
         if not all([user_name, user_phone, game_id]):
-            flash('Пожалуйста, заполните все обязательные поля!', 'error')
-            return render_template_string(HTML_TEMPLATE + ORDER_PAGE, 
-                                        site_name=SITE_NAME, 
-                                        amount=amount, 
-                                        price=price, 
-                                        format_price=format_price)
+            flash('Заполните все поля!')
+            return redirect(url_for('order', amount=amount))
         
         order_num = generate_order_num()
         
@@ -677,37 +290,167 @@ def order(amount):
         payment = cursor.fetchone()
         conn.close()
         
-        return render_template_string(HTML_TEMPLATE + PAYMENT_PAGE,
-                                    site_name=SITE_NAME,
-                                    order_num=order_num,
-                                    amount=amount,
-                                    price=price,
-                                    game_id=game_id,
-                                    card=payment['card_number'] if payment else '',
-                                    wallet=payment['wallet_number'] if payment else '',
-                                    instruction=payment['instruction'] if payment else '',
-                                    format_price=format_price)
+        return redirect(url_for('payment', order_num=order_num))
     
-    return render_template_string(HTML_TEMPLATE + ORDER_PAGE, 
-                                site_name=SITE_NAME, 
-                                amount=amount, 
-                                price=price, 
-                                format_price=format_price)
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оформление заказа - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 120px 24px 80px; }}
+        .form-container {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; }}
+        .product-info {{ text-align: center; margin-bottom: 30px; }}
+        .product-amount {{ font-size: 32px; font-weight: 700; color: #a8b5e6; }}
+        .product-price {{ font-size: 28px; font-weight: 600; margin-top: 10px; }}
+        .form-group {{ margin-bottom: 24px; }}
+        .form-group label {{ display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }}
+        .form-group input {{ width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }}
+        .form-group input:focus {{ outline: none; border-color: #7c3aed; }}
+        .btn {{ display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; width: 100%; font-size: 16px; }}
+        .btn:hover {{ transform: scale(1.02); }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+        .flash {{ background: rgba(124, 58, 237, 0.2); border: 1px solid rgba(124, 58, 237, 0.3); padding: 16px; border-radius: 16px; margin-bottom: 24px; text-align: center; }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links"><a href="/">Главная</a><a href="/catalog">Каталог</a><a href="/check">Проверить</a></div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="form-container">
+            <div class="product-info">
+                <div class="product-amount">{amount} UC</div>
+                <div class="product-price">{format_price(price)} ₽</div>
+            </div>
+            {"<div class='flash'>" + get_flashed_messages()[0] + "</div>" if get_flashed_messages() else ""}
+            <form method="post">
+                <div class="form-group"><label>Ваше имя *</label><input type="text" name="user_name" required placeholder="Иван Иванов"></div>
+                <div class="form-group"><label>Телефон *</label><input type="tel" name="user_phone" required placeholder="+7 999 123-45-67"></div>
+                <div class="form-group"><label>Email</label><input type="email" name="user_email" placeholder="ivan@example.com"></div>
+                <div class="form-group"><label>PUBG ID *</label><input type="text" name="game_id" required placeholder="Введите ваш игровой ID"></div>
+                <button type="submit" class="btn">✅ Перейти к оплате</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
+
+# ==================== ОПЛАТА ====================
+@app.route('/payment/<order_num>')
+def payment(order_num):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM orders WHERE order_num=?", (order_num,))
+    order = cursor.fetchone()
+    cursor.execute("SELECT card_number, wallet_number, instruction FROM payments LIMIT 1")
+    payment = cursor.fetchone()
+    conn.close()
+    
+    if not order:
+        return redirect(url_for('catalog'))
+    
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата заказа - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 120px 24px 80px; }}
+        .form-container {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; }}
+        .product-info {{ text-align: center; margin-bottom: 30px; }}
+        .product-amount {{ font-size: 32px; font-weight: 700; color: #a8b5e6; }}
+        .product-price {{ font-size: 28px; font-weight: 600; margin-top: 10px; }}
+        .payment-info {{ background: rgba(124, 58, 237, 0.1); border-radius: 16px; padding: 20px; margin: 20px 0; }}
+        .form-group {{ margin-bottom: 24px; }}
+        .form-group label {{ display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }}
+        .form-group input, .form-group textarea {{ width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }}
+        .btn {{ display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; width: 100%; font-size: 16px; }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+        .warning {{ color: #f87171; margin-top: 10px; font-size: 14px; }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links"><a href="/">Главная</a><a href="/catalog">Каталог</a></div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="form-container">
+            <div class="product-info">
+                <div class="product-amount">{order['uc_amount']} UC</div>
+                <div class="product-price">{format_price(order['uc_price'])} ₽</div>
+                <p style="margin-top: 10px;">🎮 ID: {order['game_id']}</p>
+                <p>📦 Заказ #{order_num}</p>
+            </div>
+            
+            <div class="payment-info">
+                <h3 style="margin-bottom: 16px;">💳 Реквизиты для оплаты</h3>
+                <p><strong>Карта:</strong> {payment['card_number'] or 'Не указана'}</p>
+                <p><strong>Кошелек:</strong> {payment['wallet_number'] or 'Не указан'}</p>
+                <p><strong>Инструкция:</strong> {payment['instruction']}</p>
+                <p class="warning">⚠️ Важно: Переведите точную сумму {format_price(order['uc_price'])} ₽</p>
+            </div>
+            
+            <form method="post" action="/payment-proof/{order_num}" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>📎 Прикрепите чек (скриншот или фото)</label>
+                    <input type="file" name="proof_file" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Или введите текст подтверждения</label>
+                    <textarea name="proof_text" rows="3" placeholder="Номер транзакции, дата, сумма..."></textarea>
+                </div>
+                <button type="submit" class="btn">📨 Отправить чек</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
 @app.route('/payment-proof/<order_num>', methods=['POST'])
 def payment_proof(order_num):
-    proof_text = request.form.get('proof_text')
+    proof_text = request.form.get('proof_text', 'Чек отправлен')
     
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE orders SET payment_proof=?, status='waiting_confirm' WHERE order_num=?", 
-                  (proof_text or 'Чек отправлен', order_num))
+                  (proof_text, order_num))
     conn.commit()
     conn.close()
     
-    flash('Чек отправлен! Администратор проверит оплату.', 'success')
     return redirect(url_for('order_status', order_num=order_num))
 
+# ==================== СТАТУС ЗАКАЗА ====================
 @app.route('/status/<order_num>')
 def order_status(order_num):
     conn = get_db()
@@ -717,13 +460,56 @@ def order_status(order_num):
     conn.close()
     
     if not order:
-        flash('Заказ не найден!', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('catalog'))
     
-    return render_template_string(HTML_TEMPLATE + STATUS_PAGE,
-                                site_name=SITE_NAME,
-                                order=order,
-                                format_price=format_price)
+    status_text = "🆕 Новый" if order['status'] == 'new' else "✅ Завершен" if order['status'] == 'completed' else "❌ Отменен"
+    
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статус заказа - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 120px 24px 80px; }}
+        .status-card {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; text-align: center; }}
+        .product-amount {{ font-size: 32px; font-weight: 700; color: #a8b5e6; }}
+        .product-price {{ font-size: 28px; font-weight: 600; margin: 10px 0; }}
+        .status {{ margin: 20px 0; padding: 12px; border-radius: 16px; background: rgba(124, 58, 237, 0.1); }}
+        .btn {{ display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; margin-top: 20px; }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links"><a href="/">Главная</a><a href="/catalog">Каталог</a></div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="status-card">
+            <div class="product-amount">{order['uc_amount']} UC</div>
+            <div class="product-price">{format_price(order['uc_price'])} ₽</div>
+            <p>🎮 ID: {order['game_id']}</p>
+            <p>📅 {order['created_at'][:19]}</p>
+            <div class="status"><strong>Статус:</strong> {status_text}</div>
+            <a href="/catalog" class="btn">🛒 Продолжить покупки</a>
+        </div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
 @app.route('/check-order', methods=['POST'])
 def check_order():
@@ -732,26 +518,54 @@ def check_order():
 
 @app.route('/check')
 def check_page():
-    return render_template_string(HTML_TEMPLATE + '''
-    {% extends "base.html" %}
-    {% block content %}
-    <div class="container">
-        <div class="hero" style="padding-top: 100px;">
-            <h1>🔍 Проверка заказа</h1>
+    return '''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка заказа - DISK Delovoi UC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }
+        .navbar { position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .container { max-width: 500px; margin: 0 auto; padding: 160px 24px 80px; }
+        .form-container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; text-align: center; }
+        .form-group { margin-bottom: 24px; }
+        .form-group input { width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }
+        .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; width: 100%; font-size: 16px; }
+        .footer { text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">DISK Delovoi UC</div>
+            <div class="nav-links"><a href="/">Главная</a><a href="/catalog">Каталог</a></div>
         </div>
-        <div class="glass-card form-container">
+    </nav>
+    
+    <div class="container">
+        <div class="form-container">
+            <h2 style="margin-bottom: 30px;">🔍 Проверка заказа</h2>
             <form method="post" action="/check-order">
                 <div class="form-group">
-                    <input type="text" name="order_num" placeholder="Номер заказа" required>
+                    <input type="text" name="order_num" placeholder="Введите номер заказа" required>
                 </div>
-                <button type="submit" class="btn" style="width: 100%;">Проверить</button>
+                <button type="submit" class="btn">Проверить</button>
             </form>
         </div>
     </div>
-    {% endblock %}
-    ''', site_name=SITE_NAME)
+    
+    <div class="footer"><p>© 2024 DISK Delovoi UC. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
-# ==================== АДМИН МАРШРУТЫ ====================
+# ==================== АДМИН-ПАНЕЛЬ ====================
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
@@ -771,7 +585,41 @@ def admin_login():
         else:
             flash('Неверный логин или пароль!')
     
-    return render_template_string(HTML_TEMPLATE + ADMIN_LOGIN_PAGE, site_name=SITE_NAME)
+    return '''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в админ-панель - DISK Delovoi UC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }
+        .container { max-width: 450px; margin: 0 auto; padding: 160px 24px 80px; }
+        .form-container { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; }
+        .form-group { margin-bottom: 24px; }
+        .form-group label { display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
+        .form-group input { width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }
+        .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; width: 100%; font-size: 16px; }
+        .flash { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); padding: 16px; border-radius: 16px; margin-bottom: 24px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 style="text-align: center; margin-bottom: 30px;">👑 Вход в админ-панель</h2>
+            <div class="flash">Неверный логин или пароль!</div>
+            <form method="post">
+                <div class="form-group"><label>Логин</label><input type="text" name="username" required></div>
+                <div class="form-group"><label>Пароль</label><input type="password" name="password" required></div>
+                <button type="submit" class="btn">Войти</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
+    '''
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -798,17 +646,93 @@ def admin_dashboard():
     
     cursor.execute("SELECT * FROM orders ORDER BY created_at DESC")
     orders = cursor.fetchall()
-    
     conn.close()
     
-    return render_template_string(HTML_TEMPLATE + ADMIN_DASHBOARD,
-                                site_name=SITE_NAME,
-                                total_orders=total_orders,
-                                new_orders=new_orders,
-                                completed_orders=completed_orders,
-                                total_income=total_income,
-                                orders=orders,
-                                format_price=format_price)
+    orders_html = ''
+    for order in orders:
+        status_class = '🆕 Новый' if order['status'] == 'new' else '✅ Завершен' if order['status'] == 'completed' else '❌ Отменен'
+        orders_html += f'''
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 12px;">{order['order_num']}</td>
+            <td style="padding: 12px;">{order['user_name']}</td>
+            <td style="padding: 12px;">{order['uc_amount']}</td>
+            <td style="padding: 12px;">{format_price(order['uc_price'])} ₽</td>
+            <td style="padding: 12px;"><span style="padding: 4px 12px; border-radius: 20px; background: rgba(124,58,237,0.2);">{status_class}</span></td>
+            <td style="padding: 12px;">
+                <form method="post" action="/admin/order/{order['id']}" style="display: flex; gap: 8px;">
+                    <select name="status" style="background: rgba(255,255,255,0.1); border: none; padding: 6px 12px; border-radius: 12px; color: white;">
+                        <option value="new">Новый</option>
+                        <option value="completed">Завершен</option>
+                        <option value="cancelled">Отменен</option>
+                    </select>
+                    <button type="submit" class="btn" style="padding: 6px 16px;">Обновить</button>
+                </form>
+            </td>
+        </tr>
+        '''
+    
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 100px 24px 80px; }}
+        .stats-grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 40px; }}
+        .stat-card {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 24px; padding: 24px; text-align: center; }}
+        .stat-number {{ font-size: 36px; font-weight: 700; color: #a8b5e6; }}
+        .admin-actions {{ display: flex; gap: 16px; justify-content: center; margin-bottom: 40px; }}
+        .btn {{ display: inline-block; padding: 10px 24px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; }}
+        .btn-outline {{ background: transparent; border: 1px solid rgba(255,255,255,0.2); }}
+        .orders-table {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 24px; padding: 24px; overflow-x: auto; }}
+        table {{ width: 100%; border-collapse: collapse; }}
+        th {{ text-align: left; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+        @media (max-width: 768px) {{ .stats-grid {{ grid-template-columns: repeat(2, 1fr); }} }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links"><a href="/">Главная</a><a href="/admin/logout">Выйти</a></div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-number">{total_orders}</div><p>Всего заказов</p></div>
+            <div class="stat-card"><div class="stat-number">{new_orders}</div><p>Новых заказов</p></div>
+            <div class="stat-card"><div class="stat-number">{completed_orders}</div><p>Завершено</p></div>
+            <div class="stat-card"><div class="stat-number">{format_price(total_income)} ₽</div><p>Оборот</p></div>
+        </div>
+        
+        <div class="admin-actions">
+            <a href="/admin/payments" class="btn btn-outline">💳 Реквизиты</a>
+            <a href="/admin/logout" class="btn btn-outline">🚪 Выйти</a>
+        </div>
+        
+        <div class="orders-table">
+            <h3 style="margin-bottom: 20px;">📋 Список заказов</h3>
+            <table>
+                <thead><tr><th>№</th><th>Покупатель</th><th>UC</th><th>Сумма</th><th>Статус</th><th>Действия</th></tr></thead>
+                <tbody>{orders_html}</tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
 @app.route('/admin/order/<int:order_id>', methods=['POST'])
 @admin_required
@@ -821,7 +745,6 @@ def admin_update_order(order_id):
     conn.commit()
     conn.close()
     
-    flash('Статус заказа обновлен!', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/payments', methods=['GET', 'POST'])
@@ -838,17 +761,59 @@ def admin_payments():
         cursor.execute("UPDATE payments SET card_number=?, wallet_number=?, instruction=?", 
                       (card_number, wallet_number, instruction))
         conn.commit()
-        flash('Реквизиты обновлены!', 'success')
     
     cursor.execute("SELECT card_number, wallet_number, instruction FROM payments LIMIT 1")
-    payments = cursor.fetchone()
+    payment = cursor.fetchone()
     conn.close()
     
-    return render_template_string(HTML_TEMPLATE + ADMIN_PAYMENTS,
-                                site_name=SITE_NAME,
-                                card=payments['card_number'] if payments else '',
-                                wallet=payments['wallet_number'] if payments else '',
-                                instruction=payments['instruction'] if payments else '')
+    return f'''
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реквизиты - {SITE_NAME}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; color: #fff; }}
+        .navbar {{ position: fixed; top: 0; left: 0; right: 0; padding: 16px 24px; background: rgba(26, 26, 46, 0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.1); }}
+        .nav-container {{ max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }}
+        .logo {{ font-size: 24px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a8b5e6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 120px 24px 80px; }}
+        .form-container {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border-radius: 32px; border: 1px solid rgba(255, 255, 255, 0.08); padding: 40px; }}
+        .form-group {{ margin-bottom: 24px; }}
+        .form-group label {{ display: block; margin-bottom: 8px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }}
+        .form-group input, .form-group textarea {{ width: 100%; padding: 14px 16px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: white; font-size: 16px; }}
+        .btn {{ display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #7c3aed 0%, #a8b5e6 100%); border: none; border-radius: 40px; color: white; font-weight: 600; text-decoration: none; cursor: pointer; width: 100%; font-size: 16px; }}
+        .footer {{ text-align: center; padding: 40px 24px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 80px; color: rgba(255, 255, 255, 0.4); }}
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">{SITE_NAME}</div>
+            <div class="nav-links"><a href="/admin">Админ-панель</a><a href="/admin/logout">Выйти</a></div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="form-container">
+            <h2 style="text-align: center; margin-bottom: 30px;">💳 Настройка реквизитов</h2>
+            <form method="post">
+                <div class="form-group"><label>Номер карты</label><input type="text" name="card_number" value="{payment['card_number'] or ''}" placeholder="1234 5678 9012 3456"></div>
+                <div class="form-group"><label>Номер кошелька</label><input type="text" name="wallet_number" value="{payment['wallet_number'] or ''}" placeholder="+7 999 123-45-67"></div>
+                <div class="form-group"><label>Инструкция по оплате</label><textarea name="instruction" rows="4">{payment['instruction'] or ''}</textarea></div>
+                <button type="submit" class="btn">💾 Сохранить</button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;"><a href="/admin" style="color: rgba(255,255,255,0.7);">← Назад</a></div>
+        </div>
+    </div>
+    
+    <div class="footer"><p>© 2024 {SITE_NAME}. Все права защищены.</p></div>
+</body>
+</html>
+    '''
 
 # ==================== ЗАПУСК ====================
 if __name__ == '__main__':
